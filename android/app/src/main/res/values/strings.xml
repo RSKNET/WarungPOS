@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">WarungPOS</string>
+    <string name="title_activity_main">WarungPOS</string>
+    <string name="package_name">com.rsknet.warungpos</string>
+    <string name="custom_url_scheme">com.rsknet.warungpos</string>
+</resources>

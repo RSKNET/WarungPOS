@@ -1,0 +1,206 @@
+name: Auto Release APK
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: write
+
+jobs:
+  # =========================================================================
+  # BRANCH DEV: Pipeline Testing & Pre-Release APK
+  # =========================================================================
+  release-dev:
+    if: github.ref_name == 'dev'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Set Dev Version
+        id: version
+        run: |
+          BASE_VERSION=$(node -p "require('./package.json').version.split('-')[0]")
+          NEW_VERSION="${BASE_VERSION}-dev.${{ github.run_number }}"
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "Building Dev version: v$NEW_VERSION"
+
+          # Terapkan nomor versi di memori runner untuk proses build
+          npm version $NEW_VERSION --no-git-tag-version --allow-same-version
+
+          if [ -f public/manifest.json ]; then
+            node -e "
+              const fs = require('fs');
+              const manifest = JSON.parse(fs.readFileSync('public/manifest.json'));
+              manifest.version = '$NEW_VERSION';
+              fs.writeFileSync('public/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+            "
+          fi
+
+      - name: Install Dependencies & Build Web
+        run: |
+          npm install
+          npm run build
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Build Android APK (Dev)
+        run: |
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug -PversionCode=${{ github.run_number }} -PisDev=true
+          cp app/build/outputs/apk/debug/app-debug.apk ../WarungPOS-v${NEW_VERSION}.apk
+
+      - name: Create GitHub Pre-Release & Upload APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Hapus pre-release dev lama beserta tag-nya agar tidak menumpuk
+          OLD_DEV_TAGS=$(gh release list --limit 50 --json tagName,isPrerelease --jq '.[] | select(.isPrerelease == true and (.tagName | contains("-dev"))) | .tagName')
+          for t in $OLD_DEV_TAGS; do
+            echo "Menghapus release dev lama: $t"
+            gh release delete "$t" --yes --cleanup-tag || true
+          done
+
+          gh release create "v${NEW_VERSION}" \
+            --title "WarungPOS v${NEW_VERSION} (Dev)" \
+            --generate-notes \
+            --prerelease \
+            WarungPOS-v${NEW_VERSION}.apk
+
+
+  # =========================================================================
+  # BRANCH MAIN: Pipeline Production & Stable Release APK
+  # =========================================================================
+  bump-version-main:
+    if: github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.bump.outputs.NEW_VERSION }}
+      skipped: ${{ steps.bump.outputs.SKIPPED }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Auto Bump Version (Main)
+        id: bump
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LAST_TAG=$(git describe --tags --match "v[0-9]*.[0-9]*.[0-9]*" --exclude "*-*" --abbrev=0 2>/dev/null || echo "")
+          echo "Last tag: $LAST_TAG"
+
+          if [ -z "$LAST_TAG" ]; then
+            NEW_VERSION=$(node -p "require('./package.json').version.split('-')[0]")
+            echo "Initial Prod version: v$NEW_VERSION"
+            echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+          else
+            COMMITS=$(git log $LAST_TAG..HEAD --oneline)
+            BUMP="patch"
+            if echo "$COMMITS" | grep -qE "feat\([a-zA-Z0-9_-]+\)!:|fix\([a-zA-Z0-9_-]+\)!:|feat!:|fix!:|BREAKING CHANGE"; then
+              BUMP="major"
+            elif echo "$COMMITS" | grep -qE "^feat|^feat\("; then
+              BUMP="minor"
+            fi
+            echo "Bump type: $BUMP"
+
+            CURRENT_BASE=$(node -p "require('./package.json').version.split('-')[0]")
+            npm version $CURRENT_BASE --no-git-tag-version --allow-same-version
+
+            npm version $BUMP --no-git-tag-version
+            NEW_VERSION=$(node -p "require('./package.json').version")
+
+            echo "New Prod version: v$NEW_VERSION"
+            echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+          fi
+
+          if [ -f public/manifest.json ]; then
+            node -e "
+              const fs = require('fs');
+              const manifest = JSON.parse(fs.readFileSync('public/manifest.json'));
+              manifest.version = '$NEW_VERSION';
+              fs.writeFileSync('public/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+            "
+            git add public/manifest.json
+          fi
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            echo "SKIPPED=true" >> $GITHUB_OUTPUT
+          else
+            git commit -m "chore: release v$NEW_VERSION [skip ci]"
+            git push origin main
+            echo "SKIPPED=false" >> $GITHUB_OUTPUT
+          fi
+
+  build-apk-main:
+    needs: bump-version-main
+    if: github.ref_name == 'main' && needs.bump-version-main.outputs.skipped != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies & Build Web
+        run: |
+          npm install
+          npm run build
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Build Android APK (Main)
+        run: |
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug -PversionCode=${{ github.run_number }} -PisDev=false
+          cp app/build/outputs/apk/debug/app-debug.apk ../WarungPOS-v${{ needs.bump-version-main.outputs.new_version }}.apk
+
+      - name: Create GitHub Release & Upload APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ needs.bump-version-main.outputs.new_version }}" \
+            --title "WarungPOS v${{ needs.bump-version-main.outputs.new_version }}" \
+            --generate-notes \
+            WarungPOS-v${{ needs.bump-version-main.outputs.new_version }}.apk
