@@ -153,8 +153,14 @@ jobs:
           git add package.json package-lock.json
 
           if git diff --staged --quiet; then
-            echo "No changes to commit"
-            echo "SKIPPED=true" >> $GITHUB_OUTPUT
+            echo "No changes to package.json to commit"
+            if gh release view "v$NEW_VERSION" >/dev/null 2>&1; then
+              echo "Release v$NEW_VERSION already exists, skipping build"
+              echo "SKIPPED=true" >> $GITHUB_OUTPUT
+            else
+              echo "Release v$NEW_VERSION does not exist yet, proceed to build"
+              echo "SKIPPED=false" >> $GITHUB_OUTPUT
+            fi
           else
             git commit -m "chore: release v$NEW_VERSION [skip ci]"
             git push origin main
