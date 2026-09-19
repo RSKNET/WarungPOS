@@ -219,6 +219,9 @@ Untuk performa terbaik, tampilan layar penuh tanpa URL bar browser, serta akses 
 3. Buka file yang selesai diunduh di HP Android Anda, lalu pilih **Pasang / Install** (izinkan instalasi dari browser jika diminta).
 4. Aplikasi siap digunakan secara offline penuh!
 
+> 💡 **Versi Pengembangan (Dev APK):**
+> Untuk mencoba fitur yang sedang dikembangkan, unduh `WarungPOS-vX.X.X-dev.X.apk` di tab [Pre-releases](https://github.com/RSKNET/WarungPOS/releases). Versi Dev memiliki Package ID mandiri (`com.rsknet.warungpos.dev`) sehingga dapat dipasang berdampingan dengan versi stabil di perangkat yang sama tanpa menimpa data toko.
+
 ### 2. Pemasangan PWA (Install di iPhone / Komputer / Browser)
 Aplikasi web ini juga dapat dipasang tanpa perlu download file APK:
 1. **Di Google Chrome / Edge (Android / PC):**
