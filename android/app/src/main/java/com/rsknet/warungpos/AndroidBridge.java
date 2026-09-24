@@ -29,7 +29,7 @@ public class AndroidBridge {
     }
 
     private String getRootFolder() {
-        return activity.getPackageName().endsWith(".dev") ? "WarungPOS-Dev" : "WarungPOS";
+        return "WarungPOS";
     }
 
     @JavascriptInterface
