@@ -1,0 +1,35 @@
+name: Telegram Notification
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Project Code
+        uses: actions/checkout@v4
+
+      - name: Checkout Private Actions Repo
+        uses: actions/checkout@v4
+        with:
+          repository: RSKNET/Github-Actions
+          token: ${{ secrets.GH_PAT }}
+          path: .github/actions/github-actions
+
+      - name: Send Notification to Telegram
+        uses: ./.github/actions/github-actions/Telegram Sender
+        with:
+          bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          message: |
+            🚀 <b>Push Event Detected!</b>
+            <b>Repo:</b> ${{ github.repository }}
+            <b>Branch:</b> <code>${{ github.ref_name }}</code>
+            <b>Commit:</b> <code>${{ github.sha }}</code>
+            <b>Actor:</b> @${{ github.actor }}
+          parse_mode: 'HTML'
