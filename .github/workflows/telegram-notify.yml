@@ -1,14 +1,18 @@
-name: Telegram Notification
+name: Send APK to Telegram
 
 on:
-  push:
-    branches:
-      - main
-      - dev
+  workflow_run:
+    workflows: ["Auto Release APK"]
+    types:
+      - completed
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  notify:
+  send-apk:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Project Code
@@ -21,15 +25,41 @@ jobs:
           token: ${{ secrets.GH_PAT }}
           path: .github/actions/github-actions
 
-      - name: Send Notification to Telegram
+      - name: Download APK from Latest Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Tunggu beberapa detik agar asset release terpasang sempurna
+          sleep 5
+
+          # Ambil release terbaru (termasuk pre-release dev)
+          TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
+          echo "Target Release: $TAG"
+
+          mkdir -p ./build-apk
+          gh release download "$TAG" --pattern "*.apk" --dir ./build-apk
+
+          APK_PATH=$(find ./build-apk -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "Error: File APK tidak ditemukan pada release $TAG"
+            exit 1
+          fi
+
+          echo "APK_PATH=$APK_PATH" >> $GITHUB_ENV
+          echo "RELEASE_TAG=$TAG" >> $GITHUB_ENV
+          echo "File APK siap dikirim: $APK_PATH"
+
+      - name: Send APK to Telegram
         uses: ./.github/actions/github-actions/Telegram Sender
         with:
           bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          file_path: ${{ env.APK_PATH }}
           message: |
-            🚀 <b>Push Event Detected!</b>
-            <b>Repo:</b> ${{ github.repository }}
-            <b>Branch:</b> <code>${{ github.ref_name }}</code>
-            <b>Commit:</b> <code>${{ github.sha }}</code>
-            <b>Actor:</b> @${{ github.actor }}
+            🚀 <b>WarungPOS APK Build & Release Selesai!</b>
+            
+            📦 <b>Versi:</b> <code>${{ env.RELEASE_TAG }}</code>
+            👤 <b>Actor:</b> @${{ github.actor }}
+            
+            <i>APK terlampir siap di-install.</i>
           parse_mode: 'HTML'
