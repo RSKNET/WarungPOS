@@ -79,8 +79,7 @@ export function BarcodeScanner({
           setIsReady(true);
           onReady?.();
         })
-        .catch((err) => {
-          console.error("Gagal memulai kamera:", err);
+        .catch(() => {
           setIsReady(false);
           onClose();
         });

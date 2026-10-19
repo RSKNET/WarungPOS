@@ -11,7 +11,7 @@ interface TierRowProps {
   tier: TierInput;
   index: number;
   batchMarkupType: MarkupType;
-  updateTier: (id: string, field: keyof TierInput, value: any) => void;
+  updateTier: (id: string, field: keyof TierInput, value: TierInput[keyof TierInput]) => void;
   removeTier: (id: string) => void;
 }
 

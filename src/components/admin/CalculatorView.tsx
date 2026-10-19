@@ -437,6 +437,5 @@ export function CalculatorView() {
   );
 }
 
-// Backward-compatible aliases
 export const DesktopCalculator = CalculatorView;
 export const MobileCalculator = CalculatorView;

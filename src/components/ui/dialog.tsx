@@ -41,12 +41,10 @@ const DialogContent = React.forwardRef<
 
       const container = e.currentTarget;
 
-      // 1. Cek tombol submit
       let primaryBtn = container.querySelector<HTMLButtonElement>(
         'button[type="submit"]:not(:disabled)',
       );
 
-      // 2. Jika tidak ada, cari tombol aksi utama non-outline/ghost yang tidak disabled
       if (!primaryBtn) {
         const candidateButtons = Array.from(
           container.querySelectorAll<HTMLButtonElement>(

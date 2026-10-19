@@ -7,11 +7,28 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
 import { toTitleCase, formatPhoneNumber } from "@/lib/text";
-import { Store, Receipt, Settings2, Save, Printer, Eye, AlertTriangle } from "lucide-react";
-import { ReceiptPreview } from "@/components/admin/ReceiptPreview";
+import {
+  Store,
+  Receipt,
+  Settings2,
+  Save,
+  Printer,
+  Eye,
+  AlertTriangle,
+  Bluetooth,
+  RefreshCw,
+} from "lucide-react";
+import { ReceiptPreview } from "@/components/Receipt";
 import { BackupRestore } from "@/components/BackupRestore";
 import { resetAllData } from "@/lib/backup";
-import { printDocument } from "@/lib/native-bridge";
+import {
+  printDocument,
+  getPairedBluetoothPrinters,
+  connectBluetoothPrinter,
+  disconnectBluetoothPrinter,
+  getConnectedPrinterMac,
+  BluetoothDeviceType,
+} from "@/lib/native-bridge";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 interface StoreSettings {
@@ -19,10 +36,12 @@ interface StoreSettings {
   storeAddress: string;
   storePhone: string;
   receiptFooter: string;
-  showLogo: boolean;
   taxEnabled: boolean;
   taxRate: number;
   paperWidth: "58" | "80";
+  receiptTemplate: "standard" | "modern" | "compact";
+  selectedPrinterMac?: string;
+  selectedPrinterName?: string;
 }
 
 const defaultSettings: StoreSettings = {
@@ -30,16 +49,75 @@ const defaultSettings: StoreSettings = {
   storeAddress: "",
   storePhone: "",
   receiptFooter: "Terima kasih atas kunjungan Anda!",
-  showLogo: true,
   taxEnabled: false,
   taxRate: 11,
   paperWidth: "58",
+  receiptTemplate: "standard",
+  selectedPrinterMac: "",
+  selectedPrinterName: "",
 };
 
 export function SettingsPage() {
   const [settings, setSettings] = useState<StoreSettings>(defaultSettings);
   const [saving, setSaving] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [printers, setPrinters] = useState<BluetoothDeviceType[]>([]);
+  const [loadingPrinters, setLoadingPrinters] = useState(false);
+  const [showAllBluetooth, setShowAllBluetooth] = useState(false);
+  const [connectedMac, setConnectedMac] = useState<string>("");
+  const [connectingPrinter, setConnectingPrinter] = useState(false);
+  const isApk = typeof window !== "undefined" && !!window.AndroidBridge;
+
+  const loadPrinters = async (showAll: boolean) => {
+    setLoadingPrinters(true);
+    try {
+      const list = await getPairedBluetoothPrinters(showAll);
+      setPrinters(list);
+    } catch {
+      setPrinters([]);
+    } finally {
+      setLoadingPrinters(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isApk) {
+      setConnectedMac(getConnectedPrinterMac());
+      loadPrinters(false);
+    }
+  }, [isApk]);
+
+  const handleConnect = async (mac: string) => {
+    if (!mac) return;
+    setConnectingPrinter(true);
+    try {
+      const ok = await connectBluetoothPrinter(mac);
+      if (ok) {
+        setConnectedMac(mac);
+        toast({
+          title: "Printer Terhubung",
+          description: `Berhasil terhubung ke ${settings.selectedPrinterName || mac}`,
+        });
+      } else {
+        toast({
+          title: "Gagal Menghubungkan",
+          description: "Pastikan printer menyala, Bluetooth aktif, dan berada dalam jangkauan.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setConnectingPrinter(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    await disconnectBluetoothPrinter();
+    setConnectedMac("");
+    toast({
+      title: "Printer Terputus",
+      description: "Koneksi printer Bluetooth berhasil diputus",
+    });
+  };
 
   const handleResetProgram = async () => {
     try {
@@ -94,24 +172,60 @@ export function SettingsPage() {
         ? { base: 12, small: 10, title: 16 }
         : { base: 10, small: 8, title: 14 };
 
+    const tmpl = settings.receiptTemplate || "standard";
+    const isModern = tmpl === "modern";
+    const isCompact = tmpl === "compact";
+
+    const totalSection = isModern ? `
+      <div style="border-top: 1px dashed #333; padding-top: 6px; margin-bottom: 6px;">
+        <div style="text-align: center; border: 1px solid #444; padding: 6px 4px; margin: 6px 0; background-color: #fafafa;">
+          <p style="margin: 0; font-size: ${fontSize.small}px; font-weight: bold; letter-spacing: 0.5px;">TOTAL TAGIHAN</p>
+          <p style="margin: 2px 0 0; font-size: ${fontSize.title + 2}px; font-weight: 900;">Rp 35.000</p>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: ${fontSize.base}px; margin-bottom: 2px;">
+          <span>Bayar</span>
+          <span>Rp 50.000</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: ${fontSize.base}px;">
+          <span>Kembali</span>
+          <span style="font-weight: bold;">Rp 15.000</span>
+        </div>
+      </div>
+    ` : `
+      <div style="border-top: ${isCompact ? "1px dashed #333" : "2px solid #333"}; padding-top: ${isCompact ? "4px" : "6px"}; margin-bottom: ${isCompact ? "4px" : "6px"};">
+        <div style="display: flex; justify-content: space-between; font-size: ${isCompact ? fontSize.base : fontSize.base + 2}px; font-weight: bold; margin-bottom: 4px;">
+          <span>TOTAL</span>
+          <span>Rp 35.000</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: ${fontSize.base}px; margin-bottom: 2px;">
+          <span>Bayar</span>
+          <span>Rp 50.000</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: ${fontSize.base}px;">
+          <span>Kembali</span>
+          <span style="font-weight: bold;">Rp 15.000</span>
+        </div>
+      </div>
+    `;
+
     const testContent = `
-      <div style="font-family: 'Courier New', monospace; width: ${paperWidth}; margin: 0; padding: 3mm;">
-        <div style="text-align: center; border-bottom: 1px dashed #333; padding-bottom: 8px; margin-bottom: 8px;">
-          <h2 style="margin: 0; font-size: ${fontSize.title}px; font-weight: bold;">${settings.storeName}</h2>
-          ${settings.storeAddress ? `<p style="margin: 3px 0 0; font-size: ${fontSize.small}px;">${settings.storeAddress}</p>` : ""}
+      <div style="font-family: 'Inconsolata', 'Courier New', Courier, monospace; width: ${paperWidth}; margin: 0; padding: ${isCompact ? "1.5mm" : "3mm"};">
+        <div style="text-align: center; border-bottom: 1px dashed #333; padding-bottom: ${isCompact ? "4px" : "8px"}; margin-bottom: ${isCompact ? "4px" : "8px"};">
+          <h2 style="margin: 0; font-size: ${fontSize.title}px; font-weight: bold; letter-spacing: 0.5px;">${settings.storeName}</h2>
+          ${settings.storeAddress ? `<p style="margin: 2px 0 0; font-size: ${fontSize.small}px;">${settings.storeAddress}</p>` : ""}
           ${settings.storePhone ? `<p style="margin: 2px 0 0; font-size: ${fontSize.small}px;">Telp: ${settings.storePhone}</p>` : ""}
-          <p style="margin: 5px 0 0; font-size: ${fontSize.small}px;">--- TEST PRINT ---</p>
+          <p style="margin: 4px 0 0; font-size: ${fontSize.small}px;">--- TEST PRINT (${tmpl.toUpperCase()}) ---</p>
         </div>
 
-        <div style="margin-bottom: 8px;">
-          <div style="margin-bottom: 5px;">
+        <div style="margin-bottom: ${isCompact ? "4px" : "8px"};">
+          <div style="margin-bottom: ${isCompact ? "3px" : "5px"};">
             <p style="margin: 0; font-size: ${fontSize.base}px; font-weight: bold;">Contoh Produk 1</p>
             <div style="display: flex; justify-content: space-between; font-size: ${fontSize.small}px;">
               <span>2 x Rp 10.000</span>
               <span style="font-weight: bold;">Rp 20.000</span>
             </div>
           </div>
-          <div style="margin-bottom: 5px;">
+          <div style="margin-bottom: ${isCompact ? "3px" : "5px"};">
             <p style="margin: 0; font-size: ${fontSize.base}px; font-weight: bold;">Contoh Produk 2</p>
             <div style="display: flex; justify-content: space-between; font-size: ${fontSize.small}px;">
               <span>1 x Rp 15.000</span>
@@ -120,24 +234,12 @@ export function SettingsPage() {
           </div>
         </div>
 
-        <div style="border-top: 1px dashed #333; padding-top: 8px; margin-bottom: 8px;">
-          <div style="display: flex; justify-content: space-between; font-size: ${fontSize.base + 2}px; font-weight: bold; margin-bottom: 4px;">
-            <span>TOTAL</span>
-            <span>Rp 35.000</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; font-size: ${fontSize.base}px; margin-bottom: 2px;">
-            <span>Bayar</span>
-            <span>Rp 50.000</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; font-size: ${fontSize.base}px;">
-            <span>Kembali</span>
-            <span style="font-weight: bold;">Rp 15.000</span>
-          </div>
-        </div>
+        ${totalSection}
 
-        <div style="text-align: center; border-top: 1px dashed #333; padding-top: 8px;">
+        <div style="text-align: center; border-top: 1px dashed #333; padding-top: ${isCompact ? "4px" : "8px"};">
+          ${isModern ? `<p style="margin: 0 0 2px; font-size: 8px; font-weight: bold;">** TRANSAKSI BERHASIL **</p>` : ""}
           <p style="margin: 0; font-size: ${fontSize.small}px;">${settings.receiptFooter}</p>
-          <p style="margin: 5px 0 0; font-size: ${fontSize.small}px;">Ukuran kertas: ${paperWidth}</p>
+          <p style="margin: 4px 0 0; font-size: ${fontSize.small}px;">Ukuran: ${paperWidth} | Model: ${tmpl}</p>
         </div>
       </div>
     `;
@@ -294,20 +396,210 @@ export function SettingsPage() {
                 </RadioGroup>
               </div>
 
-              <div className="flex items-center justify-between py-1">
-                <div className="space-y-0.5">
-                  <Label htmlFor="showLogo" className="text-sm font-medium cursor-pointer">Tampilkan Logo</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Tampilkan nama atau logo toko di bagian paling atas nota
-                  </p>
-                </div>
-                <Switch
-                  id="showLogo"
-                  checked={settings.showLogo}
-                  onCheckedChange={(checked) =>
-                    updateSettings("showLogo", checked)
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Model / Template Struk</Label>
+                <RadioGroup
+                  value={settings.receiptTemplate || "standard"}
+                  onValueChange={(value) =>
+                    updateSettings(
+                      "receiptTemplate",
+                      value as "standard" | "modern" | "compact",
+                    )
                   }
-                />
+                  className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1"
+                >
+                  <div
+                    onClick={() => updateSettings("receiptTemplate", "standard")}
+                    className={`flex items-start space-x-2.5 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      (settings.receiptTemplate || "standard") === "standard"
+                        ? "border-primary bg-primary/5"
+                        : "border-border/60 hover:bg-muted/30"
+                    }`}
+                  >
+                    <RadioGroupItem value="standard" id="tmpl-standard" className="mt-0.5" />
+                    <div className="space-y-0.5">
+                      <Label htmlFor="tmpl-standard" className="text-sm font-semibold cursor-pointer">
+                        Standard
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Minimarket klasik yang familiar
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => updateSettings("receiptTemplate", "modern")}
+                    className={`flex items-start space-x-2.5 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      settings.receiptTemplate === "modern"
+                        ? "border-primary bg-primary/5"
+                        : "border-border/60 hover:bg-muted/30"
+                    }`}
+                  >
+                    <RadioGroupItem value="modern" id="tmpl-modern" className="mt-0.5" />
+                    <div className="space-y-0.5">
+                      <Label htmlFor="tmpl-modern" className="text-sm font-semibold cursor-pointer">
+                        Modern
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Highlight total bayar menonjol
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => updateSettings("receiptTemplate", "compact")}
+                    className={`flex items-start space-x-2.5 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      settings.receiptTemplate === "compact"
+                        ? "border-primary bg-primary/5"
+                        : "border-border/60 hover:bg-muted/30"
+                    }`}
+                  >
+                    <RadioGroupItem value="compact" id="tmpl-compact" className="mt-0.5" />
+                    <div className="space-y-0.5">
+                      <Label htmlFor="tmpl-compact" className="text-sm font-semibold cursor-pointer">
+                        Compact
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Hemat kertas & baris rapat
+                      </p>
+                    </div>
+                  </div>
+                </RadioGroup>
+              </div>
+              <div className="space-y-3 p-4 rounded-xl border border-border/70 bg-muted/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bluetooth className="w-4 h-4 text-primary shrink-0" />
+                    <div>
+                      <Label className="text-sm font-semibold">Printer Thermal Bluetooth</Label>
+                      <p className="text-xs text-muted-foreground">Koneksi langsung tanpa dialog print (SPP / ESC-POS)</p>
+                    </div>
+                  </div>
+                  {isApk ? (
+                    <div className="flex items-center gap-1.5 text-xs font-medium">
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          connectedMac ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"
+                        }`}
+                      />
+                      <span className={connectedMac ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-muted-foreground"}>
+                        {connectedMac ? "Terhubung" : "Terputus"}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] px-2 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+                      Web Browser
+                    </span>
+                  )}
+                </div>
+
+                {!isApk ? (
+                  <div className="text-xs text-muted-foreground bg-muted/40 p-3 rounded-lg border border-border/40 space-y-1">
+                    <p className="font-medium text-foreground">ℹ️ Berjalan di Mode Browser</p>
+                    <p>
+                      Pencetakan nota menggunakan dialog bawaan browser (Ctrl+P / Spooler).
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Untuk koneksi langsung ke printer thermal portabel via Bluetooth (SPP) tanpa dialog, jalankan melalui <strong>aplikasi Android (APK) WarungPOS</strong>.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 pt-1">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="printerSelect" className="text-xs font-medium text-foreground">
+                          Pilih Printer Terpasang (Paired)
+                        </Label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => loadPrinters(showAllBluetooth)}
+                          disabled={loadingPrinters}
+                          className="h-6 px-2 text-xs text-primary gap-1"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${loadingPrinters ? "animate-spin" : ""}`} />
+                          <span>{loadingPrinters ? "Memuat..." : "Segarkan"}</span>
+                        </Button>
+                      </div>
+
+                      <select
+                        id="printerSelect"
+                        value={settings.selectedPrinterMac || ""}
+                        onChange={(e) => {
+                          const mac = e.target.value;
+                          const found = printers.find((p) => p.mac === mac);
+                          updateSettings("selectedPrinterMac", mac);
+                          updateSettings("selectedPrinterName", found ? found.name : "");
+                        }}
+                        className="w-full h-10 px-3 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      >
+                        <option value="">-- Pilih Perangkat Printer --</option>
+                        {printers.map((p) => (
+                          <option key={p.mac} value={p.mac}>
+                            {p.name || "Perangkat Tanpa Nama"} ({p.mac}) {p.isPrinter ? "🖨️" : ""}
+                          </option>
+                        ))}
+                      </select>
+
+                      {printers.length === 0 && !loadingPrinters && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                          ⚠️ Tidak ada printer thermal yang ditemukan. Pastikan printer telah dinyalakan & di-pairing di menu Pengaturan Bluetooth HP Anda terlebih dahulu.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/40">
+                      <div className="flex items-center gap-2">
+                        {connectedMac ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleDisconnect}
+                            className="h-8 text-xs text-destructive hover:bg-destructive/10 border-destructive/30"
+                          >
+                            Putus Koneksi
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            disabled={!settings.selectedPrinterMac || connectingPrinter}
+                            onClick={() => {
+                              if (settings.selectedPrinterMac) {
+                                handleConnect(settings.selectedPrinterMac);
+                              }
+                            }}
+                            className="h-8 text-xs gap-1.5"
+                          >
+                            <Bluetooth className="w-3.5 h-3.5" />
+                            <span>{connectingPrinter ? "Menghubungkan..." : "Hubungkan Printer"}</span>
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id="showAllBt"
+                          checked={showAllBluetooth}
+                          onCheckedChange={(checked) => {
+                            setShowAllBluetooth(checked);
+                            loadPrinters(checked);
+                          }}
+                        />
+                        <Label htmlFor="showAllBt" className="text-xs text-muted-foreground cursor-pointer">
+                          Tampilkan semua device
+                        </Label>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-muted-foreground">
+                      *Secara default TWS, headset, speaker, dan HP lain otomatis difilter keluar. Aktifkan switch di atas bila printer Anda tidak terdeteksi otomatis.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1.5">

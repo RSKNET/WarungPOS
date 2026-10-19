@@ -4,3 +4,4 @@ export { MoveDialog, MoveDialog as ShoppingMoveDialog } from "./MoveDialog";
 export { CategoryDialog, CategoryDialog as ShoppingCategoryDialog } from "./CategoryDialog";
 export { EditItemDialog, EditItemDialog as ShoppingEditItemDialog } from "./EditItemDialog";
 export { BulkAddDialog, BulkAddDialog as ShoppingBulkAddDialog } from "./BulkAddDialog";
+export { ShoppingCategorySection } from "./ShoppingCategorySection";

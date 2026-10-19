@@ -1,7 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Debt } from "@/types/debt";
 import { formatCurrency } from "@/lib/format";
-import { printDocument, saveImageToDevice } from "@/lib/native-bridge";
+import {
+  printDebtReceipt,
+  saveDebtReceiptImage,
+  shareDebtReceiptImage,
+  getStoreReceiptInfo,
+} from "@/lib/debt-receipt";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +34,7 @@ import {
   Plus,
   Printer,
   Download,
+  Share2,
   CalendarIcon,
   X,
   Trash2,
@@ -46,7 +52,6 @@ import { useSearchInput } from "@/hooks/use-search-input";
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
-import html2canvas from "html2canvas";
 import {
   Popover,
   PopoverContent,
@@ -188,102 +193,6 @@ export function DebtsPage() {
     }
   };
 
-  const handlePrint = () => {
-    if (!selectedCustomer) return;
-
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Rincian Hutang - ${selectedCustomer.customerName}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
-          h1 { font-size: 18px; margin-bottom: 5px; }
-          .subtitle { color: #666; font-size: 12px; margin-bottom: 20px; }
-          .total-box { background: #fee2e2; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-          .total-label { font-weight: 600; }
-          .total-amount { font-size: 24px; font-weight: bold; color: #dc2626; float: right; }
-          table { width: 100%; border-collapse: collapse; font-size: 12px; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-          th { background: #f5f5f5; font-weight: 600; }
-          .text-right { text-align: right; }
-          .text-center { text-align: center; }
-          .payment { color: #16a34a; font-weight: 500; }
-          .footer { margin-top: 20px; font-size: 11px; color: #666; text-align: center; }
-        </style>
-      </head>
-      <body>
-        <h1>${selectedCustomer.customerName}</h1>
-        <div class="subtitle">Rincian Hutang - Dicetak: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: localeId })}</div>
-
-        <div class="total-box">
-          <span class="total-label">Total Hutang</span>
-          <span class="total-amount">${formatCurrency(selectedCustomer.totalDebt)}</span>
-          <div style="clear: both;"></div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Waktu</th>
-              <th>Keterangan</th>
-              <th class="text-center">Qty</th>
-              <th class="text-right">Harga Satuan</th>
-              <th class="text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows
-              .map(
-                (row) => `
-              <tr>
-                <td>${format(new Date(row.timestamp), "dd/MM/yy HH:mm", { locale: localeId })}</td>
-                <td${row.type === "payment" ? ' class="payment"' : ""}>${row.type === "debt" ? row.productName : "+ Pembayaran"}</td>
-                <td class="text-center">${row.type === "debt" ? row.quantity : "-"}</td>
-                <td class="text-right">${row.type === "debt" ? formatCurrency(row.unitPrice || 0) : "-"}</td>
-                <td class="text-right${row.type === "payment" ? " payment" : ""}">${row.type === "payment" ? formatCurrency(Math.abs(row.totalPrice)) + " (-)" : formatCurrency(row.totalPrice)}</td>
-              </tr>
-            `,
-              )
-              .join("")}
-          </tbody>
-        </table>
-
-        <div class="footer">Warung POS - Sistem Kasir Digital</div>
-      </body>
-      </html>
-    `;
-
-    const printDocTitle = `Nota-Hutang-${selectedCustomer.customerName.replace(/\s+/g, "-")}`;
-    printDocument(printContent, printDocTitle);
-  };
-
-  const handleSaveImage = async () => {
-    if (!printRef.current || !selectedCustomer) return;
-
-    try {
-      const canvas = await html2canvas(printRef.current, {
-        backgroundColor: "#ffffff",
-        scale: 2,
-      });
-
-      const fileName = `hutang-${selectedCustomer.customerName.replace(/\s+/g, "-")}-${format(new Date(), "yyyyMMdd")}.png`;
-      const base64Data = canvas.toDataURL("image/png");
-      await saveImageToDevice(base64Data, fileName);
-
-      toast({
-        title: "Berhasil",
-        description: "Rincian hutang berhasil disimpan ke folder WarungPOS/Image",
-      });
-    } catch (error) {
-      toast({
-        title: "Gagal",
-        description: "Gagal menyimpan gambar",
-        variant: "destructive",
-      });
-    }
-  };
-
   const tableRows = useMemo((): DebtTableRow[] => {
     if (!selectedCustomer) return [];
 
@@ -338,6 +247,73 @@ export function DebtsPage() {
 
     return sortedRows;
   }, [customerDebts, selectedCustomer, dateFrom, dateTo]);
+
+  const totalBelanja = useMemo(() => {
+    return tableRows
+      .filter((r) => r.type === "debt")
+      .reduce((sum, r) => sum + r.totalPrice, 0);
+  }, [tableRows]);
+
+  const totalBayar = useMemo(() => {
+    return tableRows
+      .filter((r) => r.type === "payment")
+      .reduce((sum, r) => sum + Math.abs(r.totalPrice), 0);
+  }, [tableRows]);
+
+  const handlePrint = () => {
+    if (!selectedCustomer) return;
+    printDebtReceipt({
+      store: getStoreReceiptInfo(),
+      customer: selectedCustomer,
+      rows: tableRows,
+      dateFrom,
+      dateTo,
+    });
+  };
+
+  const handleSaveImage = async () => {
+    if (!selectedCustomer) return;
+    try {
+      await saveDebtReceiptImage({
+        store: getStoreReceiptInfo(),
+        customer: selectedCustomer,
+        rows: tableRows,
+        dateFrom,
+        dateTo,
+      });
+      toast({
+        title: "Gambar Disimpan",
+        description: window.AndroidBridge
+          ? "Rincian hutang disimpan di Download/WarungPOS/Image/"
+          : "Rincian hutang berhasil disimpan sebagai PNG",
+      });
+    } catch {
+      toast({
+        title: "Gagal Menyimpan",
+        description: "Gagal memproses gambar rincian hutang",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleShareImage = async () => {
+    if (!selectedCustomer) return;
+    try {
+      await shareDebtReceiptImage({
+        store: getStoreReceiptInfo(),
+        customer: selectedCustomer,
+        rows: tableRows,
+        dateFrom,
+        dateTo,
+      });
+    } catch {
+      toast({
+        title: "Gagal Membagikan",
+        description: "Gagal membagikan rincian hutang",
+        variant: "destructive",
+      });
+    }
+  };
 
   const filteredCustomers = useMemo(() => {
     const sorted = sortAlpha(customers, "customerName");
@@ -505,32 +481,41 @@ export function DebtsPage() {
           </h2>
           <p className="text-sm text-muted-foreground">Rincian Hutang & Catatan Pembayaran</p>
         </div>
-        {selectedCustomer.totalDebt > 0 && (
-          <div className="flex gap-2 shrink-0">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-10 w-10"
-              onClick={handlePrint}
-              title="Cetak"
-            >
-              <Printer className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-10 w-10"
-              onClick={handleSaveImage}
-              title="Simpan Gambar"
-            >
-              <Download className="w-4 h-4" />
-            </Button>
-            <Button onClick={handleOpenPayDialog} className="h-10 px-4 text-sm font-medium gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 sm:h-10 sm:w-10"
+            onClick={handlePrint}
+            title="Cetak / Simpan PDF"
+          >
+            <Printer className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 sm:h-10 sm:w-10"
+            onClick={handleSaveImage}
+            title="Simpan Gambar PNG"
+          >
+            <Download className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 sm:h-10 sm:w-10 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+            onClick={handleShareImage}
+            title="Bagikan ke WhatsApp"
+          >
+            <Share2 className="w-4 h-4" />
+          </Button>
+          {selectedCustomer.totalDebt > 0 && (
+            <Button onClick={handleOpenPayDialog} className="h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm font-semibold gap-1.5">
               <Banknote className="w-4 h-4" />
               Bayar
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -670,6 +655,7 @@ export function DebtsPage() {
           </Table>
         </div>
       </div>
+
 
       <Dialog open={payDialogOpen} onOpenChange={setPayDialogOpen}>
         <DialogContent className="max-w-md p-6">

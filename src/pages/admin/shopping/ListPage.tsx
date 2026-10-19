@@ -25,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { UnitSelect } from "@/components/UnitSelect";
 import {
   Dialog,
   DialogContent,
@@ -33,8 +32,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDialog";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,24 +43,14 @@ import {
   Trash2,
   FolderPlus,
   Search,
-  ChevronDown,
   FileDown,
-  Pencil,
-  CheckSquare,
-  XCircle,
   ShoppingCart,
   Archive,
-  ArrowRightLeft,
   MoreVertical,
-  Camera,
-  ImageIcon,
-  X,
 } from "lucide-react";
-import { convertToWebP } from "@/lib/image-utils";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchInput } from "@/hooks/use-search-input";
-import { cn } from "@/lib/utils";
-import { sortAlpha, sortShoppingItems } from "@/lib/sorting";
+import { sortAlpha } from "@/lib/sorting";
 import { exportShoppingListPdf } from "./pdf";
 import {
   CategoryDialog,
@@ -71,6 +58,7 @@ import {
   BulkAddDialog,
   MoveDialog,
   PhotoModal,
+  ShoppingCategorySection,
 } from "./components";
 import { BulkItemInput } from "./types";
 
@@ -651,259 +639,48 @@ export function ListPage() {
             const categoryItems = items.filter(
               (i) => i.categoryId === category.id,
             );
-
-            const filteredItems = searchQuery
-              ? categoryItems.filter(
-                (i) =>
-                  i.productName
-                    .toLowerCase()
-                    .includes(searchQuery.toLowerCase()) ||
-                  i.brand.toLowerCase().includes(searchQuery.toLowerCase()),
-              )
-              : categoryItems;
-
-            const sortedItems = sortShoppingItems(filteredItems);
-
             return (
-              <div key={category.id} className="border-b border-border/40 pb-4">
-                <div className="py-2.5 flex items-center justify-between">
-                  <button
-                    onClick={() => toggleCollapse(category.id)}
-                    className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity"
-                  >
-                    <ChevronDown
-                      className={cn(
-                        "h-4 w-4 text-muted-foreground transition-transform",
-                        collapsedCategories.has(category.id) && "-rotate-90",
-                      )}
-                    />
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-base text-foreground">{category.name}</span>
-                      <Badge variant="secondary" className="text-xs px-2 py-0.5">
-                        {categoryItems.length} item
-                      </Badge>
-                    </div>
-                  </button>
-                  <div className="flex gap-1.5 items-center">
-                    {getSelectedInCategory(category.id).length > 0 && (
-                      <>
-                        {(() => {
-                          const selected = getSelectedInCategory(category.id);
-                          const allPurchased = selected.every((i) => i.isPurchased);
-                          return (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleToggleSelectedPurchased(category.id)}
-                              title={allPurchased ? "Batalkan sudah dibeli" : "Tandai sudah dibeli"}
-                            >
-                              {allPurchased ? (
-                                <XCircle className="w-4 h-4 text-orange-500" />
-                              ) : (
-                                <CheckSquare className="w-4 h-4 text-emerald-600" />
-                              )}
-                            </Button>
-                          );
-                        })()}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => {
-                            setMoveCategorySourceId(category.id);
-                            openBulkMoveDialog();
-                          }}
-                          title={`Pindah ${getSelectedInCategory(category.id).length} item`}
-                        >
-                          <ArrowRightLeft className="w-4 h-4 text-primary" />
-                        </Button>
-                      </>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => openBulkAddDialog(category.id)}
-                      title="Tambah item"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => {
-                        setCategoryToDelete(category.id);
-                        setDeleteConfirmOpen(true);
-                      }}
-                      title="Hapus kategori"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                {!collapsedCategories.has(category.id) && (
-                  <div className="pt-1">
-                    {sortedItems.length === 0 ? (
-                      <p className="text-muted-foreground text-center py-6 px-3 text-sm">
-                        {searchQuery
-                          ? "Tidak ada item yang cocok"
-                          : "Belum ada item dalam kategori ini"}
-                      </p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table
-                          className="w-full text-sm table-fixed"
-                        >
-                          <thead>
-                            <tr className="border-b border-border/60 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                              <th className="w-8 py-3 px-2 text-center">
-                                <Checkbox
-                                  checked={
-                                    categoryItems.length > 0 &&
-                                    categoryItems.every((i) => selectedItems.has(i.id))
-                                  }
-                                  onCheckedChange={() =>
-                                    handleToggleAllInCategory(category.id)
-                                  }
-                                />
-                              </th>
-                              <th className="w-9 py-3 px-1 text-center"></th>
-                              <th className="w-[35%] text-left py-3 pr-2 pl-0 font-semibold">
-                                Produk
-                              </th>
-                              <th className="w-[25%] text-left py-3 pr-2 pl-0 font-semibold">
-                                Merk
-                              </th>
-                              <th className="w-[20%] text-left py-3 pr-2 pl-0 font-semibold">
-                                Jumlah
-                              </th>
-                              <th className="w-24 py-3 px-2"></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {sortedItems.map((item) => (
-                              <tr
-                                key={item.id}
-                                className={cn(
-                                  "border-b border-border/20 last:border-0 hover:bg-muted/20 transition-colors",
-                                  item.isPurchased &&
-                                  "bg-emerald-500/5",
-                                )}
-                              >
-                                <td className="py-3.5 px-2 text-center">
-                                  <Checkbox
-                                    checked={selectedItems.has(item.id)}
-                                    onCheckedChange={() =>
-                                      toggleSelectItem(item.id)
-                                    }
-                                  />
-                                </td>
-                                <td className="py-3.5 px-1 text-center">
-                                  {item.photo ? (
-                                    <img
-                                      src={item.photo}
-                                      alt=""
-                                      className="w-7 h-7 rounded object-cover cursor-pointer mx-auto border border-border/50"
-                                      onClick={() => setViewPhoto(item.photo!)}
-                                    />
-                                  ) : null}
-                                </td>
-                                <td
-                                  className={cn(
-                                    "py-3.5 pr-2 pl-0 font-medium text-foreground",
-                                    item.isPurchased &&
-                                    "line-through text-muted-foreground",
-                                  )}
-                                >
-                                  {item.productName}
-                                </td>
-                                <td
-                                  className={cn(
-                                    "py-3.5 pr-2 pl-0 text-muted-foreground",
-                                    item.isPurchased && "line-through",
-                                  )}
-                                >
-                                  {item.brand || "-"}
-                                </td>
-                                <td
-                                  className={cn(
-                                    "py-3.5 pr-2 pl-0 font-mono text-muted-foreground",
-                                    item.isPurchased && "line-through",
-                                  )}
-                                >
-                                  {item.quantity} {item.unit}
-                                </td>
-                                <td className="py-3.5 px-2">
-                                  <div className="flex gap-1 justify-end">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => {
-                                        toggleShoppingItemPurchased(item.id);
-                                        refreshData();
-                                        toast({
-                                          title: item.isPurchased ? "Item dikembalikan" : "Item ditandai dibeli",
-                                        });
-                                      }}
-                                      title={item.isPurchased ? "Batalkan dibeli" : "Tandai dibeli"}
-                                    >
-                                      {item.isPurchased ? (
-                                        <XCircle className="w-4 h-4 text-orange-500" />
-                                      ) : (
-                                        <CheckSquare className="w-4 h-4 text-emerald-600" />
-                                      )}
-                                    </Button>
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-8 w-8"
-                                        >
-                                          <MoreVertical className="w-4 h-4" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => openEditItemDialog(item)}>
-                                          <Pencil className="w-4 h-4 mr-2" />
-                                          Edit
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          onClick={() => {
-                                            setSelectedItems(new Set([item.id]));
-                                            setMoveCategorySourceId(item.categoryId);
-                                            openBulkMoveDialog();
-                                          }}
-                                        >
-                                          <ArrowRightLeft className="w-4 h-4 mr-2" />
-                                          Pindah Kategori
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          className="text-destructive focus:text-destructive"
-                                          onClick={() => {
-                                            setItemToDelete(item.id);
-                                            setDeleteConfirmOpen(true);
-                                          }}
-                                        >
-                                          <Trash2 className="w-4 h-4 mr-2" />
-                                          Hapus
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              <ShoppingCategorySection
+                key={category.id}
+                category={category}
+                categoryItems={categoryItems}
+                searchQuery={searchQuery}
+                isCollapsed={collapsedCategories.has(category.id)}
+                selectedItems={selectedItems}
+                onToggleCollapse={toggleCollapse}
+                onToggleAllInCategory={handleToggleAllInCategory}
+                onToggleSelectItem={toggleSelectItem}
+                onToggleSelectedPurchased={handleToggleSelectedPurchased}
+                onOpenBulkMove={(catId) => {
+                  setMoveCategorySourceId(catId);
+                  openBulkMoveDialog();
+                }}
+                onOpenBulkAdd={openBulkAddDialog}
+                onConfirmDeleteCategory={(catId) => {
+                  setCategoryToDelete(catId);
+                  setDeleteConfirmOpen(true);
+                }}
+                onToggleItemPurchased={(item) => {
+                  toggleShoppingItemPurchased(item.id);
+                  refreshData();
+                  toast({
+                    title: item.isPurchased
+                      ? "Item dikembalikan"
+                      : "Item ditandai dibeli",
+                  });
+                }}
+                onEditItem={openEditItemDialog}
+                onMoveSingleItem={(item) => {
+                  setSelectedItems(new Set([item.id]));
+                  setMoveCategorySourceId(item.categoryId);
+                  openBulkMoveDialog();
+                }}
+                onConfirmDeleteItem={(itemId) => {
+                  setItemToDelete(itemId);
+                  setDeleteConfirmOpen(true);
+                }}
+                onViewPhoto={setViewPhoto}
+              />
             );
           })}
         </div>

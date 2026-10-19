@@ -1,6 +1,6 @@
 export * from "./ConfirmDialog";
 export * from "./SuggestInput";
-export * from "./UnitSelect";
+export * from "./CreatableSuggestInput";
 export * from "./ProductForm";
 export * from "./ProductCard";
 export * from "./Cart";
@@ -12,4 +12,3 @@ export * from "./ThemeToggle";
 export * from "./PWAUpdateNotification";
 export * from "./CheckoutDialog";
 export * from "./DebtDialog";
-

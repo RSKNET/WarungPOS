@@ -17,11 +17,6 @@ import { toast } from "@/hooks/use-toast";
 import { useCategoryStore } from "@/stores";
 import { Category, isCategoryInUse } from "@/database/categories";
 import { sortAlpha } from "@/lib/sorting";
-import { SuggestInput, SuggestOption } from "@/components/SuggestInput";
-
-// ==========================================
-// 1. CategoryListManager (Inline CRUD Table)
-// ==========================================
 
 export interface CategoryListManagerProps {
   onCategoriesChange?: () => void;
@@ -169,7 +164,6 @@ export function CategoryListManager({
         </div>
       )}
 
-      {/* Desktop / Tablet Table */}
       <div className="hidden sm:block overflow-x-auto w-full">
         <table className="w-full text-sm">
           <thead>
@@ -227,7 +221,6 @@ export function CategoryListManager({
         </table>
       </div>
 
-      {/* Mobile List */}
       <div className="sm:hidden divide-y divide-border/30 w-full">
         {categories.map((category) => {
           const inUse = isCategoryInUse(category.name);
@@ -272,7 +265,6 @@ export function CategoryListManager({
         Prefix digunakan untuk generate SKU otomatis (contoh: MKN0001)
       </p>
 
-      {/* Add / Edit Dialog */}
       <Dialog open={formOpen} onOpenChange={handleCloseForm}>
         <DialogContent className="max-w-sm p-4 sm:p-6">
           <DialogHeader className="pb-1">
@@ -326,7 +318,6 @@ export function CategoryListManager({
         </DialogContent>
       </Dialog>
 
-      {/* Confirm Delete Dialog */}
       <ConfirmDeleteDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
@@ -337,10 +328,6 @@ export function CategoryListManager({
     </div>
   );
 }
-
-// ==========================================
-// 2. CategoryManager (Popup Modal Wrapper)
-// ==========================================
 
 export interface CategoryManagerProps {
   open: boolean;
@@ -377,88 +364,5 @@ export function CategoryManager({
   );
 }
 
-// ==========================================
-// 3. CategorySelect (Form Auto-Suggest Input)
-// ==========================================
-
-export interface CategorySelectProps {
-  value: string;
-  categories: string[];
-  onValueChange: (value: string) => void;
-  onCategoriesChanged?: () => void;
-}
-
-export function CategorySelect({
-  value,
-  categories,
-  onValueChange,
-  onCategoriesChanged,
-}: CategorySelectProps) {
-  const [search, setSearch] = useState(value);
-  const { addCategory: storeAddCategory } = useCategoryStore();
-
-  useEffect(() => {
-    setSearch(value);
-  }, [value]);
-
-  const generatePrefix = (name: string): string => {
-    const clean = name.trim().toUpperCase();
-    if (clean.length <= 3) return clean;
-    const consonants = clean.replace(/[AIUEO\s]/g, "");
-    if (consonants.length >= 3) return consonants.substring(0, 3);
-    return clean.substring(0, 3);
-  };
-
-  const handleCreateCategory = (name: string) => {
-    const titleCaseName = toTitleCase(name.trim());
-    if (!titleCaseName) return;
-
-    const exists = categories.find(
-      (c) => c.toLowerCase() === titleCaseName.toLowerCase(),
-    );
-
-    if (exists) {
-      onValueChange(exists);
-      setSearch(exists);
-    } else {
-      const prefix = generatePrefix(titleCaseName);
-      const result = storeAddCategory(titleCaseName, prefix);
-      if (result) {
-        onValueChange(result.name);
-        setSearch(result.name);
-        onCategoriesChanged?.();
-      }
-    }
-  };
-
-  const options: SuggestOption[] = categories.map((cat) => ({
-    id: cat,
-    label: cat,
-  }));
-
-  const exactMatch = categories.some(
-    (c) => c.toLowerCase() === search.trim().toLowerCase(),
-  );
-
-  return (
-    <SuggestInput
-      value={search}
-      options={options}
-      placeholder="Ketik atau cari kategori..."
-      onChange={(val) => {
-        setSearch(val);
-        onValueChange(val);
-      }}
-      onSelectOption={(opt) => {
-        onValueChange(opt.label);
-        setSearch(opt.label);
-      }}
-      onBlur={() => {
-        const trimmed = search.trim();
-        if (trimmed && !exactMatch) {
-          handleCreateCategory(trimmed);
-        }
-      }}
-    />
-  );
-}
+export { CategorySelect } from "./CreatableSuggestInput";
+export type { CategorySelectProps } from "./CreatableSuggestInput";

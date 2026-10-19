@@ -11,8 +11,7 @@ import { Input } from "@/components/ui/input";
 import { PriceInput } from "@/components/ui/price-input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CategorySelect } from "@/components/CategoryManager";
-import { UnitSelect } from "@/components/UnitSelect";
+import { CategorySelect, UnitSelect } from "@/components/CreatableSuggestInput";
 import { getUnitNames } from "@/database/units";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import {

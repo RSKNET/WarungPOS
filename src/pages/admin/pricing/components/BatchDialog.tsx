@@ -31,7 +31,7 @@ interface BatchDialogProps {
   setBatchMarkupType: (type: MarkupType) => void;
   tiers: TierInput[];
   addTier: () => void;
-  updateTier: (id: string, field: keyof TierInput, value: any) => void;
+  updateTier: (id: string, field: keyof TierInput, value: TierInput[keyof TierInput]) => void;
   removeTier: (id: string) => void;
   onSubmit: (e: React.FormEvent) => void;
 }

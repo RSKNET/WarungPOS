@@ -3,7 +3,6 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { useEffect } from "react";
@@ -29,13 +28,10 @@ import {
   PartnerOutgoingPage,
   PartnerLedgerPage,
 } from "./pages/admin";
-import { AdminLayout } from "./components/admin";
+import { AdminLayout } from "./components/admin/AdminLayout";
 import { PWAUpdateNotification } from "./components/PWAUpdateNotification";
 import NotFound from "./pages/NotFound";
 import { migrateFromLocalStorage } from "./database";
-
-const queryClient = new QueryClient();
-
 const App = () => {
   useEffect(() => {
     migrateFromLocalStorage();
@@ -47,10 +43,10 @@ const App = () => {
         storeAddress: "",
         storePhone: "",
         receiptFooter: "Terima kasih atas kunjungan Anda!",
-        showLogo: true,
         taxEnabled: false,
         taxRate: 11,
         paperWidth: "58",
+        receiptTemplate: "standard",
       };
       localStorage.setItem("store-settings", JSON.stringify(defaultSettings));
     }
@@ -58,8 +54,7 @@ const App = () => {
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
+      <TooltipProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
@@ -224,7 +219,6 @@ const App = () => {
           <Analytics />
           <SpeedInsights />
         </TooltipProvider>
-      </QueryClientProvider>
     </ThemeProvider>
   );
 };
