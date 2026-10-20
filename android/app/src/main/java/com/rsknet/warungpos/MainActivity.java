@@ -1,6 +1,11 @@
 package com.rsknet.warungpos;
 
 import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -18,7 +23,27 @@ import com.getcapacitor.BridgeWebChromeClient;
 public class MainActivity extends BridgeActivity {
     public static final int CAMERA_PERMISSION_REQUEST_CODE = 101;
     public static final int BLUETOOTH_PERMISSION_REQUEST_CODE = 102;
+    public static final int REQUEST_ENABLE_BT_CODE = 103;
     private PermissionRequest pendingCameraPermissionRequest;
+
+    private final BroadcastReceiver bluetoothReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
+                int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
+                if (state == BluetoothAdapter.STATE_ON) {
+                    runOnUiThread(() -> {
+                        getBridge().getWebView().evaluateJavascript("window.dispatchEvent(new CustomEvent('bluetoothStateChanged', { detail: { enabled: true } }));", null);
+                    });
+                } else if (state == BluetoothAdapter.STATE_OFF) {
+                    runOnUiThread(() -> {
+                        getBridge().getWebView().evaluateJavascript("window.dispatchEvent(new CustomEvent('bluetoothStateChanged', { detail: { enabled: false } }));", null);
+                    });
+                }
+            }
+        }
+    };
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -63,7 +88,30 @@ public class MainActivity extends BridgeActivity {
             }
         });
 
+        IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+        ContextCompat.registerReceiver(this, bluetoothReceiver, filter, ContextCompat.RECEIVER_EXPORTED);
+
         getBridge().getWebView().addJavascriptInterface(new AndroidBridge(this), "AndroidBridge");
+    }
+
+    @Override
+    public void onDestroy() {
+        try {
+            unregisterReceiver(bluetoothReceiver);
+        } catch (Exception ignored) {
+        }
+        super.onDestroy();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_ENABLE_BT_CODE) {
+            boolean enabled = (resultCode == RESULT_OK);
+            runOnUiThread(() -> {
+                getBridge().getWebView().evaluateJavascript("window.dispatchEvent(new CustomEvent('bluetoothStateChanged', { detail: { enabled: " + enabled + " } }));", null);
+            });
+        }
     }
 
     @Override

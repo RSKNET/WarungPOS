@@ -109,7 +109,7 @@ public class AndroidBridge {
                 BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
                 if (adapter != null && !adapter.isEnabled()) {
                     Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                    activity.startActivity(enableBtIntent);
+                    activity.startActivityForResult(enableBtIntent, MainActivity.REQUEST_ENABLE_BT_CODE);
                 }
             } catch (Exception ignored) {
             }

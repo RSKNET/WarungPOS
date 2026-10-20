@@ -94,6 +94,21 @@ export function SettingsPage() {
     }
   }, [isApk, showAllBluetooth, settings.selectedPrinterMac]);
 
+  const handleRequestEnableBluetooth = () => {
+    requestEnableBluetooth();
+    let count = 0;
+    const interval = setInterval(() => {
+      count++;
+      if (isBluetoothEnabled()) {
+        setBtEnabled(true);
+        refreshBluetoothState();
+        clearInterval(interval);
+      } else if (count > 20) {
+        clearInterval(interval);
+      }
+    }, 400);
+  };
+
   useEffect(() => {
     if (isApk) {
       setConnectedMac(getConnectedPrinterMac());
@@ -108,12 +123,25 @@ export function SettingsPage() {
         refreshBluetoothState();
       };
 
+      const handleBtStateChanged = (e: Event) => {
+        const customEvent = e as CustomEvent<{ enabled: boolean }>;
+        const isNowEnabled = customEvent.detail?.enabled ?? isBluetoothEnabled();
+        setBtEnabled(isNowEnabled);
+        if (isNowEnabled) {
+          refreshBluetoothState();
+        } else {
+          setPrinters([]);
+        }
+      };
+
       window.addEventListener("focus", handleFocus);
       window.addEventListener("bluetoothPermissionGranted", handlePermGranted);
+      window.addEventListener("bluetoothStateChanged", handleBtStateChanged);
 
       return () => {
         window.removeEventListener("focus", handleFocus);
         window.removeEventListener("bluetoothPermissionGranted", handlePermGranted);
+        window.removeEventListener("bluetoothStateChanged", handleBtStateChanged);
       };
     }
   }, [isApk, refreshBluetoothState]);
@@ -121,7 +149,7 @@ export function SettingsPage() {
   const handleConnect = async (mac: string) => {
     if (!mac) return;
     if (isApk && !isBluetoothEnabled()) {
-      requestEnableBluetooth();
+      handleRequestEnableBluetooth();
       toast({
         title: "Bluetooth Belum Aktif",
         description: "Mengaktifkan Bluetooth perangkat...",
@@ -371,7 +399,7 @@ export function SettingsPage() {
                     <Button
                       type="button"
                       size="sm"
-                      onClick={() => requestEnableBluetooth()}
+                      onClick={handleRequestEnableBluetooth}
                       className="h-8 text-xs font-medium gap-1.5"
                     >
                       <Bluetooth className="w-3.5 h-3.5" />
