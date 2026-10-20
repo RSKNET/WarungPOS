@@ -76,7 +76,7 @@ export interface StatementDocumentOptions {
 
 export interface SaveStatementImageConfig {
   filename?: string;
-  folder?: string;
+  folder?: "Image" | "Documents";
   toastTitle?: string;
   toastDescription?: string;
 }
