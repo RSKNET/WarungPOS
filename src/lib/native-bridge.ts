@@ -33,14 +33,45 @@ export function printDocument(htmlContent: string, jobName: string = "Dokumen-Wa
     return;
   }
 
-  const printWindow = window.open("", "_blank", "width=400,height=600");
-  if (printWindow) {
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    printWindow.focus();
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "none";
+  iframe.style.opacity = "0";
+  iframe.style.pointerEvents = "none";
+  document.body.appendChild(iframe);
+
+  const frameDoc = iframe.contentWindow?.document || iframe.contentDocument;
+  if (frameDoc && iframe.contentWindow) {
+    frameDoc.open();
+    frameDoc.write(htmlContent);
+    if (jobName) {
+      frameDoc.title = jobName;
+    }
+    frameDoc.close();
+
+    const cleanup = () => {
+      try {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+      } catch {}
+    };
+
+    iframe.contentWindow.onafterprint = cleanup;
+
     setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch {
+        cleanup();
+        window.print();
+      }
+      setTimeout(cleanup, 60000);
     }, 250);
   } else {
     window.print();
