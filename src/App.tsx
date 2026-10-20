@@ -45,7 +45,7 @@ const App = () => {
         receiptFooter: "Terima kasih atas kunjungan Anda!",
         taxEnabled: false,
         taxRate: 11,
-        receiptTemplate: "standard",
+        receiptTemplate: "compact",
       };
       localStorage.setItem("store-settings", JSON.stringify(defaultSettings));
     }

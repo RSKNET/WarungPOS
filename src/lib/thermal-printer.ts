@@ -24,7 +24,7 @@ export interface StoreSettingsData {
   receiptFooter?: string;
   taxEnabled?: boolean;
   taxRate?: number;
-  receiptTemplate?: "standard" | "modern" | "compact";
+  receiptTemplate?: "compact";
   selectedPrinterMac?: string;
   selectedPrinterName?: string;
 }
@@ -36,7 +36,7 @@ export const defaultStoreSettings: StoreSettingsData = {
   receiptFooter: "Terima kasih atas kunjungan Anda!",
   taxEnabled: false,
   taxRate: 11,
-  receiptTemplate: "standard",
+  receiptTemplate: "compact",
   selectedPrinterMac: "",
   selectedPrinterName: "",
 };
@@ -219,7 +219,7 @@ export function generateReceiptLines(payload: {
   payment: number;
   change: number;
   paymentType?: "cash" | "debt";
-  template?: "standard" | "modern" | "compact";
+  template?: "compact";
   isTest?: boolean;
 }): ReceiptLine[] {
   const {
@@ -237,12 +237,10 @@ export function generateReceiptLines(payload: {
     payment,
     change,
     paymentType = "cash",
-    template = "standard",
     isTest = false,
   } = payload;
 
   const rb = new ReceiptBuilder(RECEIPT_WIDTH);
-  const isCompact = template === "compact";
 
   rb.center(storeName || "WARUNGPOS", true);
   if (storeAddress) rb.center(storeAddress);
@@ -250,7 +248,7 @@ export function generateReceiptLines(payload: {
 
   if (isTest) {
     rb.sep("=");
-    rb.center(`TEST PRINT (${template.toUpperCase()})`, true);
+    rb.center("TEST PRINT (COMPACT)", true);
     rb.sep("=");
   } else {
     rb.sep("=");
@@ -281,7 +279,6 @@ export function generateReceiptLines(payload: {
   items.forEach((item) => {
     rb.left(item.name, true);
     rb.lr(`${item.qty} x ${formatCurrency(item.price)}`, formatCurrency(item.total));
-    if (!isCompact && items.length <= 4) rb.feed(1);
   });
 
   if (subtotal !== undefined && tax !== undefined && tax > 0) {
@@ -297,7 +294,7 @@ export function generateReceiptLines(payload: {
   rb.lr("KEMBALI", formatCurrency(change), true);
   rb.sep("=");
 
-  rb.feed(isCompact ? 1 : 2);
+  rb.feed(1);
   rb.sep("-");
   rb.center("** TRANSAKSI BERHASIL **", true);
 
@@ -382,7 +379,7 @@ export async function executeThermalPrint(payload: ThermalPrintPayload): Promise
     payment,
     change,
     paymentType,
-    template: settings.receiptTemplate,
+    template: "compact",
     isTest,
   });
 

@@ -77,7 +77,7 @@ export const ReceiptPaper = forwardRef<HTMLDivElement, ReceiptPaperProps>(
       payment,
       change,
       paymentType,
-      template: settings.receiptTemplate,
+      template: "compact",
     });
 
     return (

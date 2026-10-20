@@ -4,7 +4,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
 import { toTitleCase, formatPhoneNumber } from "@/lib/text";
 import {
@@ -38,7 +37,7 @@ interface StoreSettings {
   receiptFooter: string;
   taxEnabled: boolean;
   taxRate: number;
-  receiptTemplate: "standard" | "modern" | "compact";
+  receiptTemplate?: "compact";
   selectedPrinterMac?: string;
   selectedPrinterName?: string;
 }
@@ -50,7 +49,7 @@ const defaultSettings: StoreSettings = {
   receiptFooter: "Terima kasih atas kunjungan Anda!",
   taxEnabled: false,
   taxRate: 11,
-  receiptTemplate: "standard",
+  receiptTemplate: "compact",
   selectedPrinterMac: "",
   selectedPrinterName: "",
 };
@@ -281,76 +280,6 @@ export function SettingsPage() {
                 <span className="font-semibold text-foreground">58mm (Standar Thermal)</span>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Model / Template Struk</Label>
-                <RadioGroup
-                  value={settings.receiptTemplate || "standard"}
-                  onValueChange={(value) =>
-                    updateSettings(
-                      "receiptTemplate",
-                      value as "standard" | "modern" | "compact",
-                    )
-                  }
-                  className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1"
-                >
-                  <div
-                    onClick={() => updateSettings("receiptTemplate", "standard")}
-                    className={`flex items-start space-x-2.5 p-3 rounded-lg border cursor-pointer transition-colors ${
-                      (settings.receiptTemplate || "standard") === "standard"
-                        ? "border-primary bg-primary/5"
-                        : "border-border/60 hover:bg-muted/30"
-                    }`}
-                  >
-                    <RadioGroupItem value="standard" id="tmpl-standard" className="mt-0.5" />
-                    <div className="space-y-0.5">
-                      <Label htmlFor="tmpl-standard" className="text-sm font-semibold cursor-pointer">
-                        Standard
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Minimarket klasik yang familiar
-                      </p>
-                    </div>
-                  </div>
-
-                  <div
-                    onClick={() => updateSettings("receiptTemplate", "modern")}
-                    className={`flex items-start space-x-2.5 p-3 rounded-lg border cursor-pointer transition-colors ${
-                      settings.receiptTemplate === "modern"
-                        ? "border-primary bg-primary/5"
-                        : "border-border/60 hover:bg-muted/30"
-                    }`}
-                  >
-                    <RadioGroupItem value="modern" id="tmpl-modern" className="mt-0.5" />
-                    <div className="space-y-0.5">
-                      <Label htmlFor="tmpl-modern" className="text-sm font-semibold cursor-pointer">
-                        Modern
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Highlight total bayar menonjol
-                      </p>
-                    </div>
-                  </div>
-
-                  <div
-                    onClick={() => updateSettings("receiptTemplate", "compact")}
-                    className={`flex items-start space-x-2.5 p-3 rounded-lg border cursor-pointer transition-colors ${
-                      settings.receiptTemplate === "compact"
-                        ? "border-primary bg-primary/5"
-                        : "border-border/60 hover:bg-muted/30"
-                    }`}
-                  >
-                    <RadioGroupItem value="compact" id="tmpl-compact" className="mt-0.5" />
-                    <div className="space-y-0.5">
-                      <Label htmlFor="tmpl-compact" className="text-sm font-semibold cursor-pointer">
-                        Compact
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Hemat kertas & baris rapat
-                      </p>
-                    </div>
-                  </div>
-                </RadioGroup>
-              </div>
               <div className="space-y-3 p-4 rounded-xl border border-border/70 bg-muted/20">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
