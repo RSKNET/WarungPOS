@@ -249,18 +249,6 @@ export function DebtsPage() {
     return sortedRows;
   }, [customerDebts, selectedCustomer, dateFrom, dateTo]);
 
-  const totalBelanja = useMemo(() => {
-    return tableRows
-      .filter((r) => r.type === "debt")
-      .reduce((sum, r) => sum + r.totalPrice, 0);
-  }, [tableRows]);
-
-  const totalBayar = useMemo(() => {
-    return tableRows
-      .filter((r) => r.type === "payment")
-      .reduce((sum, r) => sum + Math.abs(r.totalPrice), 0);
-  }, [tableRows]);
-
   const getDebtStatementOptions = (): StatementDocumentOptions | null => {
     if (!selectedCustomer) return null;
     const store = getStoreReceiptInfo();

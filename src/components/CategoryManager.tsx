@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Plus, Pencil, Trash2, AlertTriangle, Tag } from "lucide-react";
 import { toTitleCase } from "@/lib/text";
 import { Button } from "@/components/ui/button";

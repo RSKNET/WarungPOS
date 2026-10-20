@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ShoppingCategory, ShoppingItem } from "@/types/shopping-list";
 import {
   getShoppingCategories,
@@ -9,28 +9,12 @@ import {
   updateShoppingItem,
   deleteShoppingItem,
   toggleShoppingItemPurchased,
-
   checkAndAutoArchive,
-
   archivePurchasedItems,
 } from "@/database/shopping-list";
 import { getUnitNames } from "@/database/units";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDialog";
 import {
   DropdownMenu,
@@ -39,7 +23,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Plus,
   Trash2,
   FolderPlus,
   Search,
@@ -192,36 +175,6 @@ export function ListPage() {
       },
     ]);
     setCategoryFormOpen(true);
-  };
-
-  const addCategoryItemRow = () => {
-    setCategoryItems((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        productName: "",
-        brand: "",
-        quantity: "",
-        unit: units[0] || "Pcs",
-      },
-    ]);
-  };
-
-  const updateCategoryItem = (
-    id: string,
-    field: keyof BulkItemInput,
-    value: string,
-  ) => {
-    setCategoryItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item,
-      ),
-    );
-  };
-
-  const removeCategoryItemRow = (id: string) => {
-    if (categoryItems.length <= 1) return;
-    setCategoryItems((prev) => prev.filter((item) => item.id !== id));
   };
 
   const handleAddCategory = () => {
@@ -403,36 +356,6 @@ export function ListPage() {
     });
     setBulkFormOpen(false);
     refreshData();
-  };
-
-  const addBulkItemRow = () => {
-    setBulkItems([
-      ...bulkItems,
-      {
-        id: crypto.randomUUID(),
-        productName: "",
-        brand: "",
-        quantity: "",
-        unit: units[0] || "Pcs",
-      },
-    ]);
-  };
-
-  const updateBulkItem = (
-    id: string,
-    field: keyof BulkItemInput,
-    value: string,
-  ) => {
-    setBulkItems(
-      bulkItems.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item,
-      ),
-    );
-  };
-
-  const removeBulkItemRow = (id: string) => {
-    if (bulkItems.length <= 1) return;
-    setBulkItems(bulkItems.filter((item) => item.id !== id));
   };
 
   const handleDeleteItem = () => {
