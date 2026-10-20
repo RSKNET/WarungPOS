@@ -339,93 +339,66 @@ export function SettingsPage() {
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-foreground">Pengaturan Nota</h2>
                 <p className="text-xs sm:text-sm text-muted-foreground">
-                  Kustomisasi format dan tampilan cetak nota printer thermal
+                  Kustomisasi format dan pencetakan nota thermal 58mm
                 </p>
               </div>
             </div>
 
             <div className="space-y-4 pt-1">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border/50 text-xs">
-                <span className="text-muted-foreground font-medium">Ukuran Kertas Nota</span>
-                <span className="font-semibold text-foreground">58mm (Standar Thermal)</span>
-              </div>
-
-              <div className="space-y-3 p-4 rounded-xl border border-border/70 bg-muted/20">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Bluetooth className="w-4 h-4 text-primary shrink-0" />
-                    <div>
-                      <Label className="text-sm font-semibold">Printer Thermal Bluetooth</Label>
-                      <p className="text-xs text-muted-foreground">Koneksi langsung tanpa dialog print (SPP / ESC-POS)</p>
-                    </div>
-                  </div>
-                  {isApk ? (
-                    <div className="flex items-center gap-1.5 text-xs font-medium">
-                      <span
-                        className={`w-2 h-2 rounded-full ${
-                          connectedMac ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"
-                        }`}
-                      />
-                      <span className={connectedMac ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-muted-foreground"}>
+                    <Label htmlFor="printerSelect" className="text-sm font-medium">Printer Thermal (Bluetooth)</Label>
+                    {isApk && (
+                      <span className={`inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full font-medium ${
+                        connectedMac
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                          : "bg-muted text-muted-foreground"
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${connectedMac ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"}`} />
                         {connectedMac ? "Terhubung" : "Terputus"}
                       </span>
-                    </div>
-                  ) : (
-                    <span className="text-[11px] px-2 py-0.5 rounded bg-muted text-muted-foreground font-medium">
-                      Web Browser
-                    </span>
+                    )}
+                  </div>
+
+                  {isApk && btEnabled && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => refreshBluetoothState(showAllBluetooth)}
+                      disabled={loadingPrinters}
+                      className="h-7 px-2 text-xs text-primary gap-1"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${loadingPrinters ? "animate-spin" : ""}`} />
+                      <span>{loadingPrinters ? "Memuat..." : "Segarkan"}</span>
+                    </Button>
                   )}
                 </div>
 
                 {!isApk ? (
-                  <div className="text-xs text-muted-foreground bg-muted/40 p-3 rounded-lg border border-border/40 space-y-1">
-                    <p className="font-medium text-foreground">ℹ️ Berjalan di Mode Browser</p>
-                    <p>
-                      Pencetakan nota menggunakan dialog bawaan browser (Ctrl+P / Spooler).
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Untuk koneksi langsung ke printer thermal portabel via Bluetooth (SPP) tanpa dialog, jalankan melalui <strong>aplikasi Android (APK) WarungPOS</strong>.
-                    </p>
-                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Berjalan di mode browser (dialog print Ctrl+P). Untuk koneksi langsung printer thermal via Bluetooth tanpa dialog, gunakan aplikasi Android (APK).
+                  </p>
                 ) : !btEnabled ? (
-                  <div className="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200 space-y-2">
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200">
+                    <div className="flex items-center gap-2 text-xs font-medium">
                       <Bluetooth className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                      <p className="text-xs font-semibold">Bluetooth Belum Aktif</p>
+                      <span>Bluetooth tidak aktif di perangkat ini</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Aplikasi memerlukan koneksi Bluetooth untuk berkomunikasi dengan printer thermal kasir.
-                    </p>
                     <Button
                       type="button"
                       size="sm"
                       onClick={handleRequestEnableBluetooth}
-                      className="h-8 text-xs font-medium gap-1.5"
+                      className="h-8 text-xs font-medium gap-1.5 shrink-0"
                     >
                       <Bluetooth className="w-3.5 h-3.5" />
-                      <span>Aktifkan Bluetooth Sekarang</span>
+                      <span>Aktifkan Bluetooth</span>
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-3 pt-1">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="printerSelect" className="text-xs font-medium text-foreground">
-                          Pilih Printer Terpasang (Paired)
-                        </Label>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => refreshBluetoothState(showAllBluetooth)}
-                          disabled={loadingPrinters}
-                          className="h-6 px-2 text-xs text-primary gap-1"
-                        >
-                          <RefreshCw className={`w-3 h-3 ${loadingPrinters ? "animate-spin" : ""}`} />
-                          <span>{loadingPrinters ? "Memuat..." : "Segarkan"}</span>
-                        </Button>
-                      </div>
-
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
                       <select
                         id="printerSelect"
                         value={settings.selectedPrinterMac || ""}
@@ -435,7 +408,7 @@ export function SettingsPage() {
                           updateSettings("selectedPrinterMac", mac);
                           updateSettings("selectedPrinterName", found ? found.name : "");
                         }}
-                        className="w-full h-10 px-3 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        className="flex-1 h-10 px-3 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 truncate"
                       >
                         <option value="">-- Pilih Perangkat Printer --</option>
                         {printers.map((p) => (
@@ -445,43 +418,40 @@ export function SettingsPage() {
                         ))}
                       </select>
 
-                      {printers.length === 0 && !loadingPrinters && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                          ⚠️ Tidak ada printer thermal yang ditemukan. Pastikan printer telah dinyalakan & di-pairing di menu Pengaturan Bluetooth HP Anda terlebih dahulu.
-                        </p>
+                      {connectedMac ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleDisconnect}
+                          className="h-10 text-xs sm:text-sm text-destructive hover:bg-destructive/10 border-destructive/30 shrink-0"
+                        >
+                          Putus
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={!settings.selectedPrinterMac || connectingPrinter}
+                          onClick={() => {
+                            if (settings.selectedPrinterMac) {
+                              handleConnect(settings.selectedPrinterMac);
+                            }
+                          }}
+                          className="h-10 text-xs sm:text-sm gap-1.5 shrink-0"
+                        >
+                          <Bluetooth className="w-4 h-4" />
+                          <span>{connectingPrinter ? "Menghubungkan..." : "Hubungkan"}</span>
+                        </Button>
                       )}
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/40">
-                      <div className="flex items-center gap-2">
-                        {connectedMac ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleDisconnect}
-                            className="h-8 text-xs text-destructive hover:bg-destructive/10 border-destructive/30"
-                          >
-                            Putus Koneksi
-                          </Button>
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="default"
-                            size="sm"
-                            disabled={!settings.selectedPrinterMac || connectingPrinter}
-                            onClick={() => {
-                              if (settings.selectedPrinterMac) {
-                                handleConnect(settings.selectedPrinterMac);
-                              }
-                            }}
-                            className="h-8 text-xs gap-1.5"
-                          >
-                            <Bluetooth className="w-3.5 h-3.5" />
-                            <span>{connectingPrinter ? "Menghubungkan..." : "Hubungkan Printer"}</span>
-                          </Button>
-                        )}
-                      </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground pt-0.5">
+                      <span>
+                        {printers.length === 0 && !loadingPrinters
+                          ? "⚠️ Printer belum di-pairing di Bluetooth HP? Silakan pairing lalu klik Segarkan."
+                          : `${printers.length} printer thermal terpasang`}
+                      </span>
 
                       <div className="flex items-center gap-2">
                         <Switch
@@ -493,14 +463,10 @@ export function SettingsPage() {
                           }}
                         />
                         <Label htmlFor="showAllBt" className="text-xs text-muted-foreground cursor-pointer">
-                          Tampilkan semua device
+                          Semua device
                         </Label>
                       </div>
                     </div>
-
-                    <p className="text-[11px] text-muted-foreground">
-                      *Secara default TWS, headset, speaker, dan HP lain otomatis difilter keluar. Aktifkan switch di atas bila printer Anda tidak terdeteksi otomatis.
-                    </p>
                   </div>
                 )}
               </div>
