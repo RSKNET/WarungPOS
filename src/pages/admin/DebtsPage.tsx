@@ -2,11 +2,12 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { Debt } from "@/types/debt";
 import { formatCurrency } from "@/lib/format";
 import {
-  printDebtReceipt,
-  saveDebtReceiptImage,
-  shareDebtReceiptImage,
+  printStatementDocument,
+  saveStatementImage,
+  shareStatementImage,
   getStoreReceiptInfo,
-} from "@/lib/debt-receipt";
+  StatementDocumentOptions,
+} from "@/lib/statement-document";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -260,32 +261,108 @@ export function DebtsPage() {
       .reduce((sum, r) => sum + Math.abs(r.totalPrice), 0);
   }, [tableRows]);
 
+  const getDebtStatementOptions = (): StatementDocumentOptions | null => {
+    if (!selectedCustomer) return null;
+    const store = getStoreReceiptInfo();
+    const isLunas = selectedCustomer.totalDebt <= 0;
+    const periodeStr = dateFrom
+      ? `${format(dateFrom, "dd/MM/yyyy")} - ${dateTo ? format(dateTo, "dd/MM/yyyy") : "Sekarang"}`
+      : "Semua Riwayat";
+
+    const sortedRows = [...tableRows].sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    );
+
+    return {
+      store,
+      meta: {
+        title: "NOTA CATATAN HUTANG",
+        date: new Date(),
+      },
+      party: {
+        items: [
+          { label: "Kepada Yth.", value: selectedCustomer.customerName },
+          { label: "Periode", value: periodeStr },
+        ],
+        badge: {
+          label: "STATUS",
+          value: isLunas ? "LUNAS" : "BELUM LUNAS",
+          color: isLunas ? "#16a34a" : "#e11d48",
+        },
+      },
+      columns: [
+        { key: "no", header: "No", align: "center", width: "35px" },
+        { key: "date", header: "Tanggal", width: "105px" },
+        { key: "description", header: "Keterangan / Nama Barang" },
+        { key: "quantity", header: "Qty", align: "center", width: "50px" },
+        { key: "price", header: "Harga", align: "right", width: "100px", isMono: true },
+        { key: "amount", header: "Jumlah", align: "right", width: "120px", isMono: true },
+      ],
+      rows: sortedRows.map((row, index) => {
+        const isPayment = row.type === "payment";
+        return {
+          id: row.id,
+          cells: {
+            no: { value: index + 1, style: "color: #6b7280;" },
+            date: {
+              value: format(new Date(row.timestamp), "dd/MM/yy HH:mm", { locale: localeId }),
+              style: "color: #4b5563;",
+            },
+            description: {
+              value: isPayment ? "[BAYAR] Pembayaran Hutang" : row.productName || "—",
+              style: isPayment ? "font-weight: 700; color: #16a34a;" : "font-weight: 500;",
+            },
+            quantity: isPayment ? "—" : (row.quantity ?? "—"),
+            price: isPayment ? "—" : formatCurrency(row.unitPrice || 0),
+            amount: {
+              value: isPayment
+                ? `- ${formatCurrency(Math.abs(row.totalPrice))}`
+                : formatCurrency(row.totalPrice),
+              style: isPayment ? "font-weight: 700; color: #16a34a;" : "font-weight: 700;",
+            },
+          },
+        };
+      }),
+      summaries: [
+        {
+          label: "Sisa Hutang:",
+          value: formatCurrency(selectedCustomer.totalDebt),
+        },
+      ],
+      signatures: [
+        {
+          title: "Tanda Terima",
+          name: selectedCustomer.customerName,
+        },
+        {
+          title: "Hormat Kami",
+          name: store.storeName,
+        },
+      ],
+      footerNote: "Catatan: Simpan nota ini sebagai bukti catatan hutang piutang yang sah.",
+    };
+  };
+
   const handlePrint = () => {
-    if (!selectedCustomer) return;
-    printDebtReceipt({
-      store: getStoreReceiptInfo(),
-      customer: selectedCustomer,
-      rows: tableRows,
-      dateFrom,
-      dateTo,
-    });
+    const options = getDebtStatementOptions();
+    if (!options || !selectedCustomer) return;
+    const printDocTitle = `Nota-Hutang-${selectedCustomer.customerName.replace(/\s+/g, "-")}`;
+    printStatementDocument(options, printDocTitle);
   };
 
   const handleSaveImage = async () => {
-    if (!selectedCustomer) return;
+    const options = getDebtStatementOptions();
+    if (!options || !selectedCustomer) return;
     try {
-      await saveDebtReceiptImage({
-        store: getStoreReceiptInfo(),
-        customer: selectedCustomer,
-        rows: tableRows,
-        dateFrom,
-        dateTo,
-      });
-      toast({
-        title: "Gambar Disimpan",
-        description: window.AndroidBridge
-          ? "Rincian hutang disimpan di Download/WarungPOS/Image/"
-          : "Rincian hutang berhasil disimpan sebagai PNG",
+      const fileName = `hutang-${selectedCustomer.customerName.replace(/\s+/g, "-")}-${format(new Date(), "yyyyMMdd")}.png`;
+      await saveStatementImage(options, {
+        filename: fileName,
+        folder: "Image",
+        toastTitle: "Nota Disimpan",
+        toastDescription:
+          typeof window !== "undefined" && window.AndroidBridge
+            ? "Nota hutang berhasil disimpan di Download/WarungPOS/Image/"
+            : "Nota hutang berhasil disimpan sebagai gambar PNG",
       });
     } catch {
       toast({
@@ -297,14 +374,16 @@ export function DebtsPage() {
   };
 
   const handleShareImage = async () => {
-    if (!selectedCustomer) return;
+    const options = getDebtStatementOptions();
+    if (!options || !selectedCustomer) return;
     try {
-      await shareDebtReceiptImage({
-        store: getStoreReceiptInfo(),
-        customer: selectedCustomer,
-        rows: tableRows,
-        dateFrom,
-        dateTo,
+      const fileName = `hutang-${selectedCustomer.customerName.replace(/\s+/g, "-")}-${format(new Date(), "yyyyMMdd")}.png`;
+      const title = `Nota Catatan Hutang - ${selectedCustomer.customerName} (${options.store.storeName})`;
+      await shareStatementImage(options, {
+        filename: fileName,
+        title,
+        errorTitle: "Gagal Membagikan",
+        errorDescription: "Terjadi kesalahan saat membagikan nota hutang",
       });
     } catch {
       toast({
