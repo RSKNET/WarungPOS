@@ -1,4 +1,4 @@
-import html2canvas from "html2canvas";
+import { toCanvas } from "html-to-image";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { formatCurrency } from "@/lib/format";
@@ -357,13 +357,10 @@ export async function renderReceiptCanvas(html: string): Promise<HTMLCanvasEleme
 
   try {
     const target = (container.querySelector(".container") as HTMLElement) || container;
-    return await html2canvas(target, {
-      scale: 2.5,
-      useCORS: true,
+    return await toCanvas(target, {
       backgroundColor: "#ffffff",
-      scrollX: 0,
-      scrollY: 0,
-      logging: false,
+      pixelRatio: 2.5,
+      skipFonts: true,
     });
   } finally {
     document.body.removeChild(container);
