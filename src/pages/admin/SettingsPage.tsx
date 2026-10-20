@@ -258,8 +258,8 @@ export function SettingsPage() {
   return (
     <div className="space-y-6">
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr),360px]">
-        <div className="space-y-6">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr),360px] min-w-0">
+        <div className="space-y-6 min-w-0">
           <BackupRestore />
 
           <div className="space-y-4 pb-6 border-b border-border/40">
@@ -397,8 +397,8 @@ export function SettingsPage() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
+                  <div className="space-y-2 min-w-0 w-full">
+                    <div className="flex gap-2 w-full min-w-0">
                       <select
                         id="printerSelect"
                         value={settings.selectedPrinterMac || ""}
@@ -408,14 +408,17 @@ export function SettingsPage() {
                           updateSettings("selectedPrinterMac", mac);
                           updateSettings("selectedPrinterName", found ? found.name : "");
                         }}
-                        className="flex-1 h-10 px-3 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 truncate"
+                        className="flex-1 min-w-0 w-0 h-10 px-3 text-sm rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 truncate"
                       >
                         <option value="">-- Pilih Perangkat Printer --</option>
-                        {printers.map((p) => (
-                          <option key={p.mac} value={p.mac}>
-                            {p.name || "Perangkat Tanpa Nama"} ({p.mac}) {p.isPrinter ? "🖨️" : ""}
-                          </option>
-                        ))}
+                        {printers.map((p) => {
+                          const displayName = p.name && p.name.length > 25 ? `${p.name.slice(0, 25)}…` : (p.name || "Perangkat Tanpa Nama");
+                          return (
+                            <option key={p.mac} value={p.mac}>
+                              {displayName} ({p.mac}) {p.isPrinter ? "🖨️" : ""}
+                            </option>
+                          );
+                        })}
                       </select>
 
                       {connectedMac ? (
@@ -446,14 +449,14 @@ export function SettingsPage() {
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between text-xs text-muted-foreground pt-0.5">
-                      <span>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground pt-0.5 min-w-0">
+                      <span className="min-w-0 flex-1 truncate">
                         {printers.length === 0 && !loadingPrinters
-                          ? "⚠️ Printer belum di-pairing di Bluetooth HP? Silakan pairing lalu klik Segarkan."
-                          : `${printers.length} printer thermal terpasang`}
+                          ? "⚠️ Printer belum di-pairing di HP"
+                          : `${printers.length} perangkat terdeteksi`}
                       </span>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         <Switch
                           id="showAllBt"
                           checked={showAllBluetooth}
