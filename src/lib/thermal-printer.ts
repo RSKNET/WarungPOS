@@ -57,27 +57,50 @@ export async function renderReceiptCanvas(element: HTMLElement): Promise<HTMLCan
   const listEl = element.querySelector("[data-receipt-items]") as HTMLElement | null;
   const prevMaxH = listEl ? listEl.style.maxHeight : "";
   const prevOverflow = listEl ? listEl.style.overflow : "";
+  const prevWidth = listEl ? listEl.style.width : "";
 
   if (listEl) {
     listEl.style.maxHeight = "none";
     listEl.style.overflow = "visible";
+    listEl.style.width = "max-content";
   }
 
+  const rect = element.getBoundingClientRect();
+  const width = Math.max(Math.ceil(rect.width), element.scrollWidth, 320);
+  const height = Math.max(Math.ceil(rect.height), element.scrollHeight);
+
   try {
-    return await toCanvas(element, {
-      backgroundColor: "#ffffff",
-      pixelRatio: 3,
-      skipFonts: true,
-      style: {
-        boxShadow: "none",
-        transform: "none",
-        margin: "0",
-      },
-    });
+    try {
+      return await toCanvas(element, {
+        backgroundColor: "#ffffff",
+        pixelRatio: 3,
+        width,
+        height,
+        style: {
+          boxShadow: "none",
+          transform: "none",
+          margin: "0",
+        },
+      });
+    } catch {
+      return await toCanvas(element, {
+        backgroundColor: "#ffffff",
+        pixelRatio: 3,
+        width,
+        height,
+        skipFonts: true,
+        style: {
+          boxShadow: "none",
+          transform: "none",
+          margin: "0",
+        },
+      });
+    }
   } finally {
     if (listEl) {
       listEl.style.maxHeight = prevMaxH;
       listEl.style.overflow = prevOverflow;
+      listEl.style.width = prevWidth;
     }
   }
 }
@@ -392,7 +415,7 @@ export async function executeThermalPrint(payload: ThermalPrintPayload): Promise
 @page{size:58mm auto;margin:0;}
 @media print{html,body{width:48mm;margin:0 auto;padding:0;}}
 body{margin:0 auto;padding:2mm 1mm;width:48mm;background:#fff;}
-.receipt-content{font-family:'Inconsolata',monospace;font-size:14.5px;line-height:1.35;width:32ch;white-space:pre;color:#000;font-weight:600;}
+.receipt-content{font-family:'Inconsolata',monospace;font-size:13.5px;line-height:1.35;letter-spacing:0;width:max-content;max-width:48mm;white-space:pre;color:#000;font-weight:600;margin:0 auto;}
 .rl{white-space:pre;min-height:1.35em;}
 .b{font-weight:800;}
 .big{font-size:130%;font-weight:900;text-align:center;}
