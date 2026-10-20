@@ -1,14 +1,21 @@
 package com.rsknet.warungpos;
 
+import android.Manifest;
 import android.app.Activity;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothClass;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
-import androidx.core.content.FileProvider;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
 import android.print.PrintManager;
@@ -18,18 +25,17 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothClass;
-import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothSocket;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -50,9 +56,77 @@ public class AndroidBridge {
     }
 
     @JavascriptInterface
+    public boolean hasBluetoothPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return ContextCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
+        }
+        return true;
+    }
+
+    @JavascriptInterface
+    public void requestBluetoothPermission() {
+        activity.runOnUiThread(() -> {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                List<String> perms = new ArrayList<>();
+                if (ContextCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    perms.add(Manifest.permission.BLUETOOTH_CONNECT);
+                }
+                if (ContextCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                    perms.add(Manifest.permission.BLUETOOTH_SCAN);
+                }
+                if (!perms.isEmpty()) {
+                    ActivityCompat.requestPermissions(activity, perms.toArray(new String[0]), MainActivity.BLUETOOTH_PERMISSION_REQUEST_CODE);
+                }
+            }
+        });
+    }
+
+    @JavascriptInterface
+    public boolean isBluetoothEnabled() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (ContextCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    return false;
+                }
+            }
+            BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+            return adapter != null && adapter.isEnabled();
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    @JavascriptInterface
+    public void requestEnableBluetooth() {
+        activity.runOnUiThread(() -> {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (ContextCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                        requestBluetoothPermission();
+                        return;
+                    }
+                }
+                BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+                if (adapter != null && !adapter.isEnabled()) {
+                    Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                    activity.startActivity(enableBtIntent);
+                }
+            } catch (Exception ignored) {
+            }
+        });
+    }
+
+    @JavascriptInterface
     public String getPairedPrinters(final boolean showAll) {
         JSONArray result = new JSONArray();
         try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (ContextCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    requestBluetoothPermission();
+                    return result.toString();
+                }
+            }
+
             BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
             if (adapter == null || !adapter.isEnabled()) {
                 return result.toString();
@@ -123,8 +197,17 @@ public class AndroidBridge {
             }
             disconnectPrinter();
 
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (ContextCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    requestBluetoothPermission();
+                    showToast("Mohon izinkan akses Bluetooth");
+                    return false;
+                }
+            }
+
             BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
             if (adapter == null || !adapter.isEnabled()) {
+                requestEnableBluetooth();
                 showToast("Bluetooth tidak aktif");
                 return false;
             }
@@ -279,8 +362,7 @@ public class AndroidBridge {
                     return true;
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception ignored) {
         }
         return false;
     }
@@ -292,7 +374,6 @@ public class AndroidBridge {
             String folderName = (subFolder != null && !subFolder.isEmpty()) ? subFolder : "Image";
             String relativePath = Environment.DIRECTORY_DOWNLOADS + "/" + rootFolder + "/" + folderName;
 
-            // Strip data:image/...;base64, prefix if present
             String cleanBase64 = base64Data;
             if (cleanBase64.contains(",")) {
                 cleanBase64 = cleanBase64.substring(cleanBase64.indexOf(",") + 1);
@@ -330,8 +411,7 @@ public class AndroidBridge {
                     return true;
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception ignored) {
         }
         return false;
     }
@@ -392,14 +472,12 @@ public class AndroidBridge {
                                 PrintDocumentAdapter printAdapter = printWebView.createPrintDocumentAdapter(title);
                                 printManager.print(title, printAdapter, new PrintAttributes.Builder().build());
                             }
-                        } catch (Exception e) {
-                            e.printStackTrace();
+                        } catch (Exception ignored) {
                         }
                     }
                 });
                 printWebView.loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null);
-            } catch (Exception e) {
-                e.printStackTrace();
+            } catch (Exception ignored) {
             }
         });
     }

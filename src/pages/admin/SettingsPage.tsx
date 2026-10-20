@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,8 @@ import {
   connectBluetoothPrinter,
   disconnectBluetoothPrinter,
   getConnectedPrinterMac,
+  isBluetoothEnabled,
+  requestEnableBluetooth,
   BluetoothDeviceType,
 } from "@/lib/native-bridge";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -63,29 +65,69 @@ export function SettingsPage() {
   const [showAllBluetooth, setShowAllBluetooth] = useState(false);
   const [connectedMac, setConnectedMac] = useState<string>("");
   const [connectingPrinter, setConnectingPrinter] = useState(false);
+  const [btEnabled, setBtEnabled] = useState<boolean>(true);
   const isApk = typeof window !== "undefined" && !!window.AndroidBridge;
 
-  const loadPrinters = async (showAll: boolean) => {
+  const refreshBluetoothState = useCallback(async (showAll = showAllBluetooth) => {
+    if (!isApk) return;
+    const enabled = isBluetoothEnabled();
+    setBtEnabled(enabled);
+    if (!enabled) {
+      setPrinters([]);
+      return;
+    }
     setLoadingPrinters(true);
     try {
       const list = await getPairedBluetoothPrinters(showAll);
       setPrinters(list);
+      if (list.length === 1 && !settings.selectedPrinterMac) {
+        setSettings((prev) => ({
+          ...prev,
+          selectedPrinterMac: list[0].mac,
+          selectedPrinterName: list[0].name,
+        }));
+      }
     } catch {
       setPrinters([]);
     } finally {
       setLoadingPrinters(false);
     }
-  };
+  }, [isApk, showAllBluetooth, settings.selectedPrinterMac]);
 
   useEffect(() => {
     if (isApk) {
       setConnectedMac(getConnectedPrinterMac());
-      loadPrinters(false);
+      refreshBluetoothState();
+
+      const handleFocus = () => {
+        refreshBluetoothState();
+        setConnectedMac(getConnectedPrinterMac());
+      };
+
+      const handlePermGranted = () => {
+        refreshBluetoothState();
+      };
+
+      window.addEventListener("focus", handleFocus);
+      window.addEventListener("bluetoothPermissionGranted", handlePermGranted);
+
+      return () => {
+        window.removeEventListener("focus", handleFocus);
+        window.removeEventListener("bluetoothPermissionGranted", handlePermGranted);
+      };
     }
-  }, [isApk]);
+  }, [isApk, refreshBluetoothState]);
 
   const handleConnect = async (mac: string) => {
     if (!mac) return;
+    if (isApk && !isBluetoothEnabled()) {
+      requestEnableBluetooth();
+      toast({
+        title: "Bluetooth Belum Aktif",
+        description: "Mengaktifkan Bluetooth perangkat...",
+      });
+      return;
+    }
     setConnectingPrinter(true);
     try {
       const ok = await connectBluetoothPrinter(mac);
@@ -317,6 +359,25 @@ export function SettingsPage() {
                       Untuk koneksi langsung ke printer thermal portabel via Bluetooth (SPP) tanpa dialog, jalankan melalui <strong>aplikasi Android (APK) WarungPOS</strong>.
                     </p>
                   </div>
+                ) : !btEnabled ? (
+                  <div className="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Bluetooth className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                      <p className="text-xs font-semibold">Bluetooth Belum Aktif</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Aplikasi memerlukan koneksi Bluetooth untuk berkomunikasi dengan printer thermal kasir.
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => requestEnableBluetooth()}
+                      className="h-8 text-xs font-medium gap-1.5"
+                    >
+                      <Bluetooth className="w-3.5 h-3.5" />
+                      <span>Aktifkan Bluetooth Sekarang</span>
+                    </Button>
+                  </div>
                 ) : (
                   <div className="space-y-3 pt-1">
                     <div className="space-y-1.5">
@@ -328,7 +389,7 @@ export function SettingsPage() {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => loadPrinters(showAllBluetooth)}
+                          onClick={() => refreshBluetoothState(showAllBluetooth)}
                           disabled={loadingPrinters}
                           className="h-6 px-2 text-xs text-primary gap-1"
                         >
@@ -400,7 +461,7 @@ export function SettingsPage() {
                           checked={showAllBluetooth}
                           onCheckedChange={(checked) => {
                             setShowAllBluetooth(checked);
-                            loadPrinters(checked);
+                            refreshBluetoothState(checked);
                           }}
                         />
                         <Label htmlFor="showAllBt" className="text-xs text-muted-foreground cursor-pointer">

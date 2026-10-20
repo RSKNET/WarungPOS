@@ -16,14 +16,15 @@ import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebChromeClient;
 
 public class MainActivity extends BridgeActivity {
+    public static final int CAMERA_PERMISSION_REQUEST_CODE = 101;
+    public static final int BLUETOOTH_PERMISSION_REQUEST_CODE = 102;
+    private PermissionRequest pendingCameraPermissionRequest;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Edge-to-edge window
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-
-        // Background status bar hitam murni
         getWindow().getDecorView().setBackgroundColor(Color.BLACK);
         getWindow().setStatusBarColor(Color.BLACK);
 
@@ -32,8 +33,6 @@ public class MainActivity extends BridgeActivity {
             controller.setAppearanceLightStatusBars(false);
         }
 
-        // Pad top by status bar & cutout height so content doesn't collide with clock/battery.
-        // Bottom padding remains 0 so web reaches physical bottom edge (fixing Xiaomi bottom lift).
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content), (view, windowInsets) -> {
             Insets insets = windowInsets.getInsets(
                 WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.displayCutout()
@@ -42,33 +41,51 @@ public class MainActivity extends BridgeActivity {
             return windowInsets;
         });
 
-        // Grant WebChromeClient permission requests for camera access (html5-qrcode)
         getBridge().getWebView().setWebChromeClient(new BridgeWebChromeClient(getBridge()) {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
                 runOnUiThread(() -> {
-                    request.grant(request.getResources());
+                    boolean needsCamera = false;
+                    for (String resource : request.getResources()) {
+                        if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) {
+                            needsCamera = true;
+                            break;
+                        }
+                    }
+
+                    if (needsCamera && ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                        pendingCameraPermissionRequest = request;
+                        ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+                    } else {
+                        request.grant(request.getResources());
+                    }
                 });
             }
         });
 
-        // Bridge to save backup directly to Downloads directory
         getBridge().getWebView().addJavascriptInterface(new AndroidBridge(this), "AndroidBridge");
+    }
 
-        java.util.List<String> perms = new java.util.ArrayList<>();
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            perms.add(Manifest.permission.CAMERA);
-        }
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                perms.add(Manifest.permission.BLUETOOTH_CONNECT);
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (pendingCameraPermissionRequest != null) {
+                    pendingCameraPermissionRequest.grant(pendingCameraPermissionRequest.getResources());
+                }
+            } else {
+                if (pendingCameraPermissionRequest != null) {
+                    pendingCameraPermissionRequest.deny();
+                }
             }
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
-                perms.add(Manifest.permission.BLUETOOTH_SCAN);
+            pendingCameraPermissionRequest = null;
+        } else if (requestCode == BLUETOOTH_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                runOnUiThread(() -> {
+                    getBridge().getWebView().evaluateJavascript("window.dispatchEvent(new CustomEvent('bluetoothPermissionGranted'));", null);
+                });
             }
-        }
-        if (!perms.isEmpty()) {
-            ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), 100);
         }
     }
 }

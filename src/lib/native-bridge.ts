@@ -19,6 +19,10 @@ interface AndroidBridgeType {
   isPrinterConnected?: () => boolean;
   getConnectedPrinterMac?: () => string;
   printBluetoothImage?: (base64Data: string, paperWidthMm: number) => boolean;
+  isBluetoothEnabled?: () => boolean;
+  requestEnableBluetooth?: () => void;
+  hasBluetoothPermission?: () => boolean;
+  requestBluetoothPermission?: () => void;
 }
 
 declare global {
@@ -184,6 +188,32 @@ export async function printViaBluetooth(dataUrl: string, paperWidthMm: number = 
     return window.AndroidBridge.printBluetoothImage(dataUrl, paperWidthMm);
   }
   return false;
+}
+
+export function isBluetoothEnabled(): boolean {
+  if (typeof window !== "undefined" && window.AndroidBridge?.isBluetoothEnabled) {
+    return window.AndroidBridge.isBluetoothEnabled();
+  }
+  return true;
+}
+
+export function requestEnableBluetooth(): void {
+  if (typeof window !== "undefined" && window.AndroidBridge?.requestEnableBluetooth) {
+    window.AndroidBridge.requestEnableBluetooth();
+  }
+}
+
+export function hasBluetoothPermission(): boolean {
+  if (typeof window !== "undefined" && window.AndroidBridge?.hasBluetoothPermission) {
+    return window.AndroidBridge.hasBluetoothPermission();
+  }
+  return true;
+}
+
+export function requestBluetoothPermission(): void {
+  if (typeof window !== "undefined" && window.AndroidBridge?.requestBluetoothPermission) {
+    window.AndroidBridge.requestBluetoothPermission();
+  }
 }
 
 export interface SaveCanvasOptions {
