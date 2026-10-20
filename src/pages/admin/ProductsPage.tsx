@@ -14,7 +14,7 @@ import { useProductStore } from "@/stores";
 import { formatCurrency } from "@/lib/format";
 import { ProductForm } from "@/components/ProductForm";
 import { CategoryManager } from "@/components/CategoryManager";
-import { ConfirmDeleteDialog } from "@/components";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {

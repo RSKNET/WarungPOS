@@ -2,10 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
-import { useEffect } from "react";
-import Index from "./pages/Index";
+import { CashierPage } from "./pages/CashierPage";
+import { Layout } from "./components/Layout";
 import {
   DashboardPage,
   ProductsPage,
@@ -56,7 +57,14 @@ const App = () => {
           <Toaster />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Index />} />
+              <Route
+                path="/"
+                element={
+                  <Layout>
+                    <CashierPage />
+                  </Layout>
+                }
+              />
               <Route
                 path="/admin"
                 element={

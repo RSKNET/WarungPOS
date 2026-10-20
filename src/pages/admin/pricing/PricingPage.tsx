@@ -10,7 +10,7 @@ import {
   Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ConfirmDeleteDialog, ConfirmActionDialog } from "@/components";
+import { ConfirmDeleteDialog, ConfirmActionDialog } from "@/components/ConfirmDialog";
 import {
   Table,
   TableBody,
