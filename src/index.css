@@ -5,36 +5,78 @@
 @tailwind components;
 @tailwind utilities;
 
-.thermal-receipt-paper {
-  font-family: 'Inconsolata', 'Courier New', Courier, monospace;
+.thermal-receipt-paper,
+.thermal-paper {
   background-color: #ffffff;
-  color: #09090b;
+  color: #000000;
   position: relative;
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 25px 15px;
+  min-height: 400px;
+  height: max-content;
+  width: auto;
+  min-width: 300px;
+  max-width: 340px;
+  margin: 10px auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  border-radius: 2px;
+  transition: 0.3s;
 }
 
-.thermal-receipt-paper::before {
+.thermal-receipt-paper::before,
+.thermal-paper::before {
   content: "";
   position: absolute;
-  top: -4px;
+  top: -5px;
   left: 0;
   right: 0;
-  height: 8px;
+  height: 10px;
   background: linear-gradient(135deg, transparent 50%, #ffffff 50%),
               linear-gradient(45deg, #ffffff 50%, transparent 50%);
-  background-size: 8px 8px;
+  background-size: 10px 10px;
 }
 
-.thermal-receipt-paper::after {
+.thermal-receipt-paper::after,
+.thermal-paper::after {
   content: "";
   position: absolute;
-  bottom: -4px;
+  bottom: -5px;
   left: 0;
   right: 0;
-  height: 8px;
+  height: 10px;
   background: linear-gradient(135deg, #ffffff 50%, transparent 50%),
               linear-gradient(45deg, transparent 50%, #ffffff 50%);
-  background-size: 8px 8px;
+  background-size: 10px 10px;
+}
+
+.receipt-content {
+  font-family: 'Inconsolata', monospace;
+  font-size: 15px;
+  line-height: 1.35;
+  width: 32ch;
+  white-space: pre;
+  overflow: hidden;
+  color: #000000;
+  font-weight: 600;
+  text-align: left;
+}
+
+.receipt-content .rl {
+  white-space: pre;
+  min-height: 1.35em;
+}
+
+.receipt-content .rl.b {
+  font-weight: 800;
+}
+
+.receipt-content .rl.big {
+  font-size: 130%;
+  line-height: 1.2;
+  font-weight: 900;
+  text-align: center;
 }
 
 @layer base {

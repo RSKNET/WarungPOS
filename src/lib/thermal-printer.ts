@@ -24,7 +24,6 @@ export interface StoreSettingsData {
   receiptFooter?: string;
   taxEnabled?: boolean;
   taxRate?: number;
-  paperWidth?: "58" | "80";
   receiptTemplate?: "standard" | "modern" | "compact";
   selectedPrinterMac?: string;
   selectedPrinterName?: string;
@@ -37,7 +36,6 @@ export const defaultStoreSettings: StoreSettingsData = {
   receiptFooter: "Terima kasih atas kunjungan Anda!",
   taxEnabled: false,
   taxRate: 11,
-  paperWidth: "58",
   receiptTemplate: "standard",
   selectedPrinterMac: "",
   selectedPrinterName: "",
@@ -104,6 +102,212 @@ export async function shareReceiptPng(canvas: HTMLCanvasElement, filename: strin
   });
 }
 
+export const RECEIPT_WIDTH = 32;
+
+function cleanString(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/[\u00A0\u202F]/g, " ")
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/[^\x20-\x7E]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function wrapLine(text: string, width: number): string[] {
+  const words = String(text).split(" ").filter((w) => w.length > 0);
+  const lines: string[] = [];
+  let current = "";
+  words.forEach((word) => {
+    let w = word;
+    while (w.length > width) {
+      if (current) {
+        lines.push(current);
+        current = "";
+      }
+      lines.push(w.slice(0, width));
+      w = w.slice(width);
+    }
+    if (!w) return;
+    if (!current) {
+      current = w;
+    } else if (current.length + 1 + w.length <= width) {
+      current += " " + w;
+    } else {
+      lines.push(current);
+      current = w;
+    }
+  });
+  if (current || lines.length === 0) lines.push(current);
+  return lines;
+}
+
+export interface ReceiptLine {
+  text: string;
+  bold?: boolean;
+  isBig?: boolean;
+}
+
+export class ReceiptBuilder {
+  width: number;
+  lines: ReceiptLine[];
+
+  constructor(width = RECEIPT_WIDTH) {
+    this.width = width;
+    this.lines = [];
+  }
+
+  feed(n = 1): this {
+    for (let i = 0; i < n; i++) {
+      this.lines.push({ text: "" });
+    }
+    return this;
+  }
+
+  sep(ch = "-"): this {
+    this.lines.push({ text: (ch || "-").repeat(this.width) });
+    return this;
+  }
+
+  center(text: string, bold = false, isBig = false): this {
+    const w = isBig ? Math.floor(this.width / 1.3) : this.width;
+    const val = cleanString(text);
+    wrapLine(val, w).forEach((line) => {
+      const pad = Math.max(0, Math.floor((this.width - line.length) / 2));
+      this.lines.push({ text: " ".repeat(pad) + line, bold, isBig });
+    });
+    return this;
+  }
+
+  left(text: string, bold = false): this {
+    const val = cleanString(text);
+    wrapLine(val, this.width).forEach((line) => {
+      this.lines.push({ text: line, bold });
+    });
+    return this;
+  }
+
+  lr(leftText: string, rightText: string, bold = false): this {
+    const k = cleanString(leftText);
+    const v = cleanString(rightText);
+    if (k.length + 1 + v.length <= this.width) {
+      const spaces = this.width - k.length - v.length;
+      this.lines.push({ text: k + " ".repeat(spaces) + v, bold });
+      return this;
+    }
+    this.lines.push({ text: k, bold });
+    wrapLine(v, this.width).forEach((line) => {
+      const spaces = Math.max(0, this.width - line.length);
+      this.lines.push({ text: " ".repeat(spaces) + line, bold });
+    });
+    return this;
+  }
+}
+
+export function generateReceiptLines(payload: {
+  storeName: string;
+  storeAddress?: string;
+  storePhone?: string;
+  receiptFooter?: string;
+  dateStr: string;
+  docNumber?: string;
+  customerName?: string;
+  items: ReceiptItemData[];
+  subtotal?: number;
+  tax?: number;
+  total: number;
+  payment: number;
+  change: number;
+  paymentType?: "cash" | "debt";
+  template?: "standard" | "modern" | "compact";
+  isTest?: boolean;
+}): ReceiptLine[] {
+  const {
+    storeName,
+    storeAddress,
+    storePhone,
+    receiptFooter,
+    dateStr,
+    docNumber,
+    customerName,
+    items,
+    subtotal,
+    tax,
+    total,
+    payment,
+    change,
+    paymentType = "cash",
+    template = "standard",
+    isTest = false,
+  } = payload;
+
+  const rb = new ReceiptBuilder(RECEIPT_WIDTH);
+  const isCompact = template === "compact";
+
+  rb.center(storeName || "WARUNGPOS", true);
+  if (storeAddress) rb.center(storeAddress);
+  if (storePhone) rb.center(`Telp: ${storePhone}`);
+
+  if (isTest) {
+    rb.sep("=");
+    rb.center(`TEST PRINT (${template.toUpperCase()})`, true);
+    rb.sep("=");
+  } else {
+    rb.sep("=");
+  }
+
+  let dateOnly = dateStr;
+  let timeOnly = "";
+  if (dateStr.includes(",")) {
+    const [d, t] = dateStr.split(",");
+    dateOnly = d.trim();
+    timeOnly = t.trim();
+  } else {
+    const parts = dateStr.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      timeOnly = parts[parts.length - 1];
+      dateOnly = parts.slice(0, -1).join(" ");
+    }
+  }
+
+  rb.lr("TANGGAL", dateOnly);
+  if (timeOnly) rb.lr("WAKTU", timeOnly);
+
+  if (docNumber) rb.lr("NO TRANSAKSI", `#${docNumber}`);
+  if (customerName) rb.lr("PELANGGAN", customerName);
+
+  rb.sep("-");
+
+  items.forEach((item) => {
+    rb.left(item.name, true);
+    rb.lr(`${item.qty} x ${formatCurrency(item.price)}`, formatCurrency(item.total));
+    if (!isCompact && items.length <= 4) rb.feed(1);
+  });
+
+  if (subtotal !== undefined && tax !== undefined && tax > 0) {
+    rb.sep("-");
+    rb.lr("SUBTOTAL", formatCurrency(subtotal));
+    rb.lr("PAJAK", formatCurrency(tax));
+  }
+
+  rb.sep("-");
+  rb.lr("TOTAL", formatCurrency(total), true);
+  rb.sep("=");
+  rb.lr(`BAYAR (${paymentType === "debt" ? "HUTANG" : "TUNAI"})`, formatCurrency(payment));
+  rb.lr("KEMBALI", formatCurrency(change), true);
+  rb.sep("=");
+
+  rb.feed(isCompact ? 1 : 2);
+  rb.sep("-");
+  rb.center("** TRANSAKSI BERHASIL **", true);
+
+  if (receiptFooter) {
+    rb.center(receiptFooter);
+  }
+
+  return rb.lines;
+}
+
 export interface ThermalPrintPayload {
   settings: StoreSettingsData;
   title: string;
@@ -116,6 +320,7 @@ export interface ThermalPrintPayload {
   total: number;
   payment: number;
   change: number;
+  paymentType?: "cash" | "debt";
   canvas?: HTMLCanvasElement | null;
   isTest?: boolean;
 }
@@ -128,9 +333,12 @@ export async function executeThermalPrint(payload: ThermalPrintPayload): Promise
     dateStr,
     customerName,
     items,
+    subtotal,
+    tax,
     total,
     payment,
     change,
+    paymentType,
     canvas,
     isTest,
   } = payload;
@@ -146,8 +354,7 @@ export async function executeThermalPrint(payload: ThermalPrintPayload): Promise
     }
 
     if (connected && canvas) {
-      const paperWidthMm = settings.paperWidth === "80" ? 80 : 58;
-      const ok = await printViaBluetooth(canvas.toDataURL("image/png"), paperWidthMm);
+      const ok = await printViaBluetooth(canvas.toDataURL("image/png"), 58);
       if (ok) {
         toast({
           title: isTest ? "Test Cetak Berhasil" : "Nota Dicetak",
@@ -160,86 +367,39 @@ export async function executeThermalPrint(payload: ThermalPrintPayload): Promise
     }
   }
 
-  const paperWidth = settings.paperWidth === "80" ? "80mm" : "58mm";
-  const tmpl = settings.receiptTemplate || "standard";
-  const isModern = tmpl === "modern";
-  const isCompact = tmpl === "compact";
-  const fontSize =
-    settings.paperWidth === "80"
-      ? { base: 12, small: 10, title: 16 }
-      : { base: 10, small: 8, title: 14 };
+  const lines = generateReceiptLines({
+    storeName: settings.storeName,
+    storeAddress: settings.storeAddress,
+    storePhone: settings.storePhone,
+    receiptFooter: settings.receiptFooter,
+    dateStr,
+    docNumber,
+    customerName,
+    items,
+    subtotal,
+    tax,
+    total,
+    payment,
+    change,
+    paymentType,
+    template: settings.receiptTemplate,
+    isTest,
+  });
 
-  const totalSection = isModern ? `
-    <div style="border-top: 1px dashed #333; padding-top: 6px; margin-bottom: 6px;">
-      <div style="text-align: center; border: 1px solid #444; padding: 6px 4px; margin: 6px 0; background-color: #fafafa;">
-        <p style="margin: 0; font-size: ${fontSize.small}px; font-weight: bold; letter-spacing: 0.5px;">TOTAL TAGIHAN</p>
-        <p style="margin: 2px 0 0; font-size: ${fontSize.title + 2}px; font-weight: 900;">${formatCurrency(total)}</p>
-      </div>
-      <div style="display: flex; justify-content: space-between; font-size: ${fontSize.base}px; margin-bottom: 2px;">
-        <span>Bayar</span>
-        <span>${formatCurrency(payment)}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; font-size: ${fontSize.base}px;">
-        <span>Kembali</span>
-        <span style="font-weight: bold;">${formatCurrency(change)}</span>
-      </div>
-    </div>
-  ` : `
-    <div style="border-top: ${isCompact ? "1px dashed #333" : "2px solid #333"}; padding-top: ${isCompact ? "4px" : "6px"}; margin-bottom: ${isCompact ? "4px" : "6px"};">
-      <div style="display: flex; justify-content: space-between; font-size: ${isCompact ? fontSize.base : fontSize.base + 2}px; font-weight: bold; margin-bottom: 4px;">
-        <span>TOTAL</span>
-        <span>${formatCurrency(total)}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; font-size: ${fontSize.base}px; margin-bottom: 2px;">
-        <span>Bayar</span>
-        <span>${formatCurrency(payment)}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; font-size: ${fontSize.base}px;">
-        <span>Kembali</span>
-        <span style="font-weight: bold;">${formatCurrency(change)}</span>
-      </div>
-    </div>
-  `;
+  const content = lines
+    .map((l) => `<div class="rl${l.bold ? " b" : ""}${l.isBig ? " big" : ""}">${l.text || "&nbsp;"}</div>`)
+    .join("");
 
-  const printContent = `
-    <div style="font-family: 'Inconsolata', 'Courier New', Courier, monospace; width: ${paperWidth}; margin: 0; padding: ${isCompact ? "1.5mm" : "3mm"};">
-      <div style="text-align: center; border-bottom: 1px dashed #333; padding-bottom: ${isCompact ? "4px" : "8px"}; margin-bottom: ${isCompact ? "4px" : "8px"};">
-        <h2 style="margin: 0; font-size: ${fontSize.title}px; font-weight: bold; letter-spacing: 0.5px;">${settings.storeName || "WarungPOS"}</h2>
-        ${isTest ? `<p style="margin: 4px 0 0; font-size: ${fontSize.small}px;">--- TEST PRINT (${tmpl.toUpperCase()}) ---</p>` : `
-          ${settings.storeAddress ? `<p style="margin: 2px 0 0; font-size: ${fontSize.small}px;">${settings.storeAddress}</p>` : ""}
-          ${settings.storePhone ? `<p style="margin: 2px 0 0; font-size: ${fontSize.small}px;">Telp: ${settings.storePhone}</p>` : ""}
-          <p style="margin: 4px 0 0; font-size: ${fontSize.small}px;">${dateStr}</p>
-          ${docNumber ? `<p style="margin: 2px 0 0; font-size: ${fontSize.small}px;">No: ${docNumber}</p>` : ""}
-          ${customerName ? `<p style="margin: 2px 0 0; font-size: ${fontSize.small}px;">Pelanggan: ${customerName}</p>` : ""}
-        `}
-      </div>
-
-      <div style="margin-bottom: ${isCompact ? "4px" : "8px"};">
-        ${items
-          .map(
-            (item) => `
-          <div style="margin-bottom: ${isCompact ? "3px" : "5px"};">
-            <p style="margin: 0; font-size: ${fontSize.base}px; font-weight: bold;">${item.name}</p>
-            <div style="display: flex; justify-content: space-between; font-size: ${fontSize.small}px;">
-              <span>${item.qty} x ${formatCurrency(item.price)}</span>
-              <span style="font-weight: bold;">${formatCurrency(item.total)}</span>
-            </div>
-          </div>
-        `,
-          )
-          .join("")}
-      </div>
-
-      ${totalSection}
-
-      <div style="text-align: center; border-top: 1px dashed #333; padding-top: ${isCompact ? "4px" : "8px"};">
-        ${isModern && !isTest ? `<p style="margin: 0 0 2px; font-size: 8px; font-weight: bold;">** TRANSAKSI BERHASIL **</p>` : ""}
-        <p style="margin: 0; font-size: ${fontSize.small}px;">${settings.receiptFooter || "Terima kasih!"}</p>
-      </div>
-    </div>
-  `;
-
-  const fullHtml = `<!DOCTYPE html><html><head><title>${title}</title><style>@page{size:${paperWidth} auto;margin:0;}@media print{html,body{width:${paperWidth};margin:0;padding:0;}}body{margin:0;padding:0;width:${paperWidth};}*{box-sizing:border-box;}</style></head><body>${printContent}</body></html>`;
+  const fullHtml = `<!DOCTYPE html><html><head><title>${title}</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inconsolata:wght@600;800;900&display=swap');
+@page{size:58mm auto;margin:0;}
+@media print{html,body{width:48mm;margin:0 auto;padding:0;}}
+body{margin:0 auto;padding:2mm 1mm;width:48mm;background:#fff;}
+.receipt-content{font-family:'Inconsolata',monospace;font-size:14.5px;line-height:1.35;width:32ch;white-space:pre;color:#000;font-weight:600;}
+.rl{white-space:pre;min-height:1.35em;}
+.b{font-weight:800;}
+.big{font-size:130%;font-weight:900;text-align:center;}
+</style></head><body><div class="receipt-content">${content}</div></body></html>`;
 
   printDocument(fullHtml, title.replace(/\s+/g, "-"));
 }

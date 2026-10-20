@@ -21,8 +21,8 @@ import {
 import { ReceiptPreview } from "@/components/Receipt";
 import { BackupRestore } from "@/components/BackupRestore";
 import { resetAllData } from "@/lib/backup";
+import { executeThermalPrint } from "@/lib/thermal-printer";
 import {
-  printDocument,
   getPairedBluetoothPrinters,
   connectBluetoothPrinter,
   disconnectBluetoothPrinter,
@@ -38,7 +38,6 @@ interface StoreSettings {
   receiptFooter: string;
   taxEnabled: boolean;
   taxRate: number;
-  paperWidth: "58" | "80";
   receiptTemplate: "standard" | "modern" | "compact";
   selectedPrinterMac?: string;
   selectedPrinterName?: string;
@@ -51,7 +50,6 @@ const defaultSettings: StoreSettings = {
   receiptFooter: "Terima kasih atas kunjungan Anda!",
   taxEnabled: false,
   taxRate: 11,
-  paperWidth: "58",
   receiptTemplate: "standard",
   selectedPrinterMac: "",
   selectedPrinterName: "",
@@ -165,117 +163,27 @@ export function SettingsPage() {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleTestPrint = () => {
-    const paperWidth = settings.paperWidth === "80" ? "80mm" : "58mm";
-    const fontSize =
-      settings.paperWidth === "80"
-        ? { base: 12, small: 10, title: 16 }
-        : { base: 10, small: 8, title: 14 };
-
-    const tmpl = settings.receiptTemplate || "standard";
-    const isModern = tmpl === "modern";
-    const isCompact = tmpl === "compact";
-
-    const totalSection = isModern ? `
-      <div style="border-top: 1px dashed #333; padding-top: 6px; margin-bottom: 6px;">
-        <div style="text-align: center; border: 1px solid #444; padding: 6px 4px; margin: 6px 0; background-color: #fafafa;">
-          <p style="margin: 0; font-size: ${fontSize.small}px; font-weight: bold; letter-spacing: 0.5px;">TOTAL TAGIHAN</p>
-          <p style="margin: 2px 0 0; font-size: ${fontSize.title + 2}px; font-weight: 900;">Rp 35.000</p>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: ${fontSize.base}px; margin-bottom: 2px;">
-          <span>Bayar</span>
-          <span>Rp 50.000</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: ${fontSize.base}px;">
-          <span>Kembali</span>
-          <span style="font-weight: bold;">Rp 15.000</span>
-        </div>
-      </div>
-    ` : `
-      <div style="border-top: ${isCompact ? "1px dashed #333" : "2px solid #333"}; padding-top: ${isCompact ? "4px" : "6px"}; margin-bottom: ${isCompact ? "4px" : "6px"};">
-        <div style="display: flex; justify-content: space-between; font-size: ${isCompact ? fontSize.base : fontSize.base + 2}px; font-weight: bold; margin-bottom: 4px;">
-          <span>TOTAL</span>
-          <span>Rp 35.000</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: ${fontSize.base}px; margin-bottom: 2px;">
-          <span>Bayar</span>
-          <span>Rp 50.000</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: ${fontSize.base}px;">
-          <span>Kembali</span>
-          <span style="font-weight: bold;">Rp 15.000</span>
-        </div>
-      </div>
-    `;
-
-    const testContent = `
-      <div style="font-family: 'Inconsolata', 'Courier New', Courier, monospace; width: ${paperWidth}; margin: 0; padding: ${isCompact ? "1.5mm" : "3mm"};">
-        <div style="text-align: center; border-bottom: 1px dashed #333; padding-bottom: ${isCompact ? "4px" : "8px"}; margin-bottom: ${isCompact ? "4px" : "8px"};">
-          <h2 style="margin: 0; font-size: ${fontSize.title}px; font-weight: bold; letter-spacing: 0.5px;">${settings.storeName}</h2>
-          ${settings.storeAddress ? `<p style="margin: 2px 0 0; font-size: ${fontSize.small}px;">${settings.storeAddress}</p>` : ""}
-          ${settings.storePhone ? `<p style="margin: 2px 0 0; font-size: ${fontSize.small}px;">Telp: ${settings.storePhone}</p>` : ""}
-          <p style="margin: 4px 0 0; font-size: ${fontSize.small}px;">--- TEST PRINT (${tmpl.toUpperCase()}) ---</p>
-        </div>
-
-        <div style="margin-bottom: ${isCompact ? "4px" : "8px"};">
-          <div style="margin-bottom: ${isCompact ? "3px" : "5px"};">
-            <p style="margin: 0; font-size: ${fontSize.base}px; font-weight: bold;">Contoh Produk 1</p>
-            <div style="display: flex; justify-content: space-between; font-size: ${fontSize.small}px;">
-              <span>2 x Rp 10.000</span>
-              <span style="font-weight: bold;">Rp 20.000</span>
-            </div>
-          </div>
-          <div style="margin-bottom: ${isCompact ? "3px" : "5px"};">
-            <p style="margin: 0; font-size: ${fontSize.base}px; font-weight: bold;">Contoh Produk 2</p>
-            <div style="display: flex; justify-content: space-between; font-size: ${fontSize.small}px;">
-              <span>1 x Rp 15.000</span>
-              <span style="font-weight: bold;">Rp 15.000</span>
-            </div>
-          </div>
-        </div>
-
-        ${totalSection}
-
-        <div style="text-align: center; border-top: 1px dashed #333; padding-top: ${isCompact ? "4px" : "8px"};">
-          ${isModern ? `<p style="margin: 0 0 2px; font-size: 8px; font-weight: bold;">** TRANSAKSI BERHASIL **</p>` : ""}
-          <p style="margin: 0; font-size: ${fontSize.small}px;">${settings.receiptFooter}</p>
-          <p style="margin: 4px 0 0; font-size: ${fontSize.small}px;">Ukuran: ${paperWidth} | Model: ${tmpl}</p>
-        </div>
-      </div>
-    `;
-
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Test Print - ${settings.storeName}</title>
-          <style>
-            @page {
-              size: ${paperWidth} auto;
-              margin: 0;
-            }
-            @media print {
-              html, body {
-                width: ${paperWidth};
-                margin: 0;
-                padding: 0;
-              }
-            }
-            body {
-              margin: 0;
-              padding: 0;
-              width: ${paperWidth};
-            }
-            * {
-              box-sizing: border-box;
-            }
-          </style>
-        </head>
-        <body>${testContent}</body>
-      </html>
-    `;
-
-    printDocument(html, `Test-Print-${settings.storeName.replace(/\s+/g, "-")}`);
+  const handleTestPrint = async () => {
+    await executeThermalPrint({
+      settings,
+      title: `Test-Print-${(settings.storeName || "WarungPOS").replace(/\s+/g, "-")}`,
+      dateStr: new Date().toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      items: [
+        { name: "Contoh Produk 1", qty: 2, price: 10000, total: 20000 },
+        { name: "Contoh Produk 2", qty: 1, price: 15000, total: 15000 },
+      ],
+      total: 35000,
+      payment: 50000,
+      change: 15000,
+      paymentType: "cash",
+      isTest: true,
+    });
   };
 
   return (
@@ -368,32 +276,9 @@ export function SettingsPage() {
             </div>
 
             <div className="space-y-4 pt-1">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Ukuran Kertas Thermal</Label>
-                <RadioGroup
-                  value={settings.paperWidth}
-                  onValueChange={(value) => updateSettings("paperWidth", value)}
-                  className="flex flex-col sm:flex-row gap-4 pt-1"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="58" id="paper-58" />
-                    <Label
-                      htmlFor="paper-58"
-                      className="text-sm font-normal cursor-pointer"
-                    >
-                      58mm (Kecil / Standar Portabel)
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="80" id="paper-80" />
-                    <Label
-                      htmlFor="paper-80"
-                      className="text-sm font-normal cursor-pointer"
-                    >
-                      80mm (Lebar / Desktop POS)
-                    </Label>
-                  </div>
-                </RadioGroup>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border/50 text-xs">
+                <span className="text-muted-foreground font-medium">Ukuran Kertas Nota</span>
+                <span className="font-semibold text-foreground">58mm (Standar Thermal)</span>
               </div>
 
               <div className="space-y-2">
