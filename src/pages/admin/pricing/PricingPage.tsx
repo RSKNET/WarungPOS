@@ -53,7 +53,7 @@ import {
 import { getProducts, getVariants, updateVariant, waitForProducts, waitForVariants } from "@/database";
 import { getCategories, Category } from "@/database/categories";
 import { formatCurrency, roundToThousand } from "@/lib/format";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { compareAlpha } from "@/lib/sorting";
 
