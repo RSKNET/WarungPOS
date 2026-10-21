@@ -40,7 +40,16 @@ import {
   X,
   Trash2,
   ChevronRight,
+  MoreVertical,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import {
   getCustomersWithDebt,
   getDebtsByCustomerId,
@@ -90,6 +99,8 @@ export function DebtsPage() {
   const [payDialogOpen, setPayDialogOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
 
   const {
     searchQuery: search,
@@ -249,15 +260,50 @@ export function DebtsPage() {
     return sortedRows;
   }, [customerDebts, selectedCustomer, dateFrom, dateTo]);
 
-  const getDebtStatementOptions = (): StatementDocumentOptions | null => {
-    if (!selectedCustomer) return null;
+  const buildCustomerStatementOptions = (
+    customer: CustomerDebtSummary,
+    customRows?: DebtTableRow[],
+    dateRange?: { from?: Date; to?: Date },
+  ): StatementDocumentOptions => {
     const store = getStoreReceiptInfo();
-    const isLunas = selectedCustomer.totalDebt <= 0;
-    const periodeStr = dateFrom
-      ? `${format(dateFrom, "dd/MM/yyyy")} - ${dateTo ? format(dateTo, "dd/MM/yyyy") : "Sekarang"}`
+    const isLunas = customer.totalDebt <= 0;
+    const periodeStr = dateRange?.from
+      ? `${format(dateRange.from, "dd/MM/yyyy")} - ${dateRange.to ? format(dateRange.to, "dd/MM/yyyy") : "Sekarang"}`
       : "Semua Riwayat";
 
-    const sortedRows = [...tableRows].sort(
+    let rowsToUse = customRows;
+    if (!rowsToUse) {
+      const debts = getDebtsByCustomerId(customer.customerId);
+      const rows: DebtTableRow[] = [];
+      for (const debt of debts) {
+        for (const item of debt.items) {
+          rows.push({
+            id: `${debt.id}-${item.productId}`,
+            timestamp: debt.createdAt,
+            type: "debt",
+            productName: item.productName,
+            quantity: item.quantity,
+            unitPrice: item.price,
+            totalPrice: item.subtotal,
+            debtId: debt.id,
+          });
+        }
+      }
+      const customerPayments = getCustomerPayments(customer.customerId);
+      for (const payment of customerPayments) {
+        rows.push({
+          id: payment.id,
+          timestamp: payment.createdAt,
+          type: "payment",
+          totalPrice: -payment.amount,
+        });
+      }
+      rowsToUse = rows.sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+      );
+    }
+
+    const sortedRows = [...rowsToUse].sort(
       (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
     );
 
@@ -269,7 +315,7 @@ export function DebtsPage() {
       },
       party: {
         items: [
-          { label: "Kepada Yth.", value: selectedCustomer.customerName },
+          { label: "Kepada Yth.", value: customer.customerName },
           { label: "Periode", value: periodeStr },
         ],
         badge: {
@@ -314,13 +360,13 @@ export function DebtsPage() {
       summaries: [
         {
           label: "Sisa Hutang:",
-          value: formatCurrency(selectedCustomer.totalDebt),
+          value: formatCurrency(customer.totalDebt),
         },
       ],
       signatures: [
         {
           title: "Tanda Terima",
-          name: selectedCustomer.customerName,
+          name: customer.customerName,
         },
         {
           title: "Hormat Kami",
@@ -329,6 +375,11 @@ export function DebtsPage() {
       ],
       footerNote: "Catatan: Simpan nota ini sebagai bukti catatan hutang piutang yang sah.",
     };
+  };
+
+  const getDebtStatementOptions = (): StatementDocumentOptions | null => {
+    if (!selectedCustomer) return null;
+    return buildCustomerStatementOptions(selectedCustomer, tableRows, { from: dateFrom, to: dateTo });
   };
 
   const handlePrint = () => {
@@ -382,6 +433,207 @@ export function DebtsPage() {
     }
   };
 
+  const handlePrintCustomer = (customer: CustomerDebtSummary) => {
+    const options = buildCustomerStatementOptions(customer);
+    const printDocTitle = `Nota-Hutang-${customer.customerName.replace(/\s+/g, "-")}`;
+    printStatementDocument(options, printDocTitle);
+  };
+
+  const handleSaveImageCustomer = async (customer: CustomerDebtSummary) => {
+    const options = buildCustomerStatementOptions(customer);
+    try {
+      const fileName = `hutang-${customer.customerName.replace(/\s+/g, "-")}-${format(new Date(), "yyyyMMdd")}.png`;
+      await saveStatementImage(options, {
+        filename: fileName,
+        folder: "Image",
+        toastTitle: "Nota Disimpan",
+        toastDescription:
+          typeof window !== "undefined" && window.AndroidBridge
+            ? "Nota hutang berhasil disimpan di Download/WarungPOS/Image/"
+            : "Nota hutang berhasil disimpan sebagai gambar PNG",
+      });
+    } catch {
+      toast({
+        title: "Gagal Menyimpan",
+        description: "Gagal memproses gambar rincian hutang",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleShareImageCustomer = async (customer: CustomerDebtSummary) => {
+    const options = buildCustomerStatementOptions(customer);
+    try {
+      const fileName = `hutang-${customer.customerName.replace(/\s+/g, "-")}-${format(new Date(), "yyyyMMdd")}.png`;
+      const title = `Nota Catatan Hutang - ${customer.customerName} (${options.store.storeName})`;
+      await shareStatementImage(options, {
+        filename: fileName,
+        title,
+        errorTitle: "Gagal Membagikan",
+        errorDescription: "Terjadi kesalahan saat membagikan nota hutang",
+      });
+    } catch {
+      toast({
+        title: "Gagal Membagikan",
+        description: "Gagal membagikan rincian hutang",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const selectedCustomersList = useMemo(() => {
+    return customers.filter((c) => selectedCustomerIds.has(c.customerId));
+  }, [customers, selectedCustomerIds]);
+
+  const selectedLunasCount = useMemo(() => {
+    return selectedCustomersList.filter((c) => c.totalDebt === 0).length;
+  }, [selectedCustomersList]);
+
+  const getBulkDebtStatementOptions = (selectedList: CustomerDebtSummary[]): StatementDocumentOptions => {
+    const store = getStoreReceiptInfo();
+    const totalSelectedDebt = selectedList.reduce((sum, c) => sum + c.totalDebt, 0);
+
+    return {
+      store,
+      meta: {
+        title: "REKAPITULASI DAFTAR HUTANG",
+        date: new Date(),
+      },
+      party: {
+        items: [
+          { label: "Jumlah Pelanggan", value: `${selectedList.length} orang` },
+          { label: "Tanggal Rekap", value: format(new Date(), "dd/MM/yyyy HH:mm", { locale: localeId }) },
+        ],
+        badge: {
+          label: "TOTAL PIUTANG",
+          value: formatCurrency(totalSelectedDebt),
+          color: "#e11d48",
+        },
+      },
+      columns: [
+        { key: "no", header: "No", align: "center", width: "40px" },
+        { key: "name", header: "Nama Pelanggan" },
+        { key: "count", header: "Transaksi", align: "center", width: "100px" },
+        { key: "debt", header: "Total Hutang", align: "right", width: "130px", isMono: true },
+      ],
+      rows: selectedList.map((c, idx) => ({
+        id: c.customerId,
+        cells: {
+          no: { value: idx + 1, style: "color: #6b7280;" },
+          name: { value: c.customerName, style: "font-weight: 600;" },
+          count: `${c.debtCount} transaksi`,
+          debt: {
+            value: formatCurrency(c.totalDebt),
+            style: c.totalDebt > 0 ? "font-weight: 700; color: #e11d48;" : "color: #16a34a;",
+          },
+        },
+      })),
+      summaries: [
+        {
+          label: "Total Piutang Terpilih:",
+          value: formatCurrency(totalSelectedDebt),
+          isHighlight: true,
+        },
+      ],
+      signatures: [
+        {
+          title: "Petugas / Kasir",
+          name: store.storeName,
+        },
+      ],
+      footerNote: "Laporan rekapitulasi daftar hutang pelanggan WarungPOS.",
+    };
+  };
+
+  const handleBulkPrint = () => {
+    if (selectedCustomersList.length === 0) return;
+    const options = getBulkDebtStatementOptions(selectedCustomersList);
+    const title = `Rekap-Hutang-${format(new Date(), "yyyyMMdd-HHmm")}`;
+    printStatementDocument(options, title);
+  };
+
+  const handleBulkSaveImage = async () => {
+    if (selectedCustomersList.length === 0) return;
+    const options = getBulkDebtStatementOptions(selectedCustomersList);
+    try {
+      const fileName = `rekap-hutang-${format(new Date(), "yyyyMMdd-HHmm")}.png`;
+      await saveStatementImage(options, {
+        filename: fileName,
+        folder: "Image",
+        toastTitle: "Rekap Hutang Disimpan",
+        toastDescription:
+          typeof window !== "undefined" && window.AndroidBridge
+            ? "Rekap hutang berhasil disimpan di Download/WarungPOS/Image/"
+            : "Rekap hutang berhasil disimpan sebagai gambar PNG",
+      });
+    } catch {
+      toast({
+        title: "Gagal Menyimpan",
+        description: "Gagal memproses gambar rekap hutang",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkShareImage = async () => {
+    if (selectedCustomersList.length === 0) return;
+    const options = getBulkDebtStatementOptions(selectedCustomersList);
+    try {
+      const fileName = `rekap-hutang-${format(new Date(), "yyyyMMdd-HHmm")}.png`;
+      const title = `Rekapitulasi Hutang Pelanggan (${options.store.storeName})`;
+      await shareStatementImage(options, {
+        filename: fileName,
+        title,
+        errorTitle: "Gagal Membagikan",
+        errorDescription: "Terjadi kesalahan saat membagikan rekap hutang",
+      });
+    } catch {
+      toast({
+        title: "Gagal Membagikan",
+        description: "Gagal membagikan rekap hutang",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleCustomerSelect = (customerId: string) => {
+    setSelectedCustomerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(customerId)) {
+        next.delete(customerId);
+      } else {
+        next.add(customerId);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    if (filteredCustomers.every((c) => selectedCustomerIds.has(c.customerId))) {
+      setSelectedCustomerIds(new Set());
+    } else {
+      setSelectedCustomerIds(new Set(filteredCustomers.map((c) => c.customerId)));
+    }
+  };
+
+  const handleConfirmBulkDelete = () => {
+    const lunasList = selectedCustomersList.filter((c) => c.totalDebt === 0);
+    if (lunasList.length === 0) return;
+    let successCount = 0;
+    for (const c of lunasList) {
+      if (deleteCustomerDebtHistory(c.customerId)) {
+        successCount++;
+      }
+    }
+    toast({
+      title: "Berhasil",
+      description: `${successCount} riwayat pelanggan lunas berhasil dibersihkan`,
+    });
+    setSelectedCustomerIds(new Set());
+    setBulkDeleteConfirmOpen(false);
+    loadCustomers();
+  };
+
   const filteredCustomers = useMemo(() => {
     const sorted = sortAlpha(customers, "customerName");
     if (!search.trim()) return sorted;
@@ -398,31 +650,107 @@ export function DebtsPage() {
   if (!selectedCustomer) {
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4 pb-4 border-b border-border/40">
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Piutang</p>
-            <p className="text-2xl sm:text-3xl font-extrabold text-destructive tracking-tight mt-0.5">
-              {formatCurrency(totalAllDebts)}
-            </p>
+        {selectedCustomerIds.size > 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-muted/60 border border-border/50 text-xs">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={
+                  filteredCustomers.length > 0 &&
+                  filteredCustomers.every((c) => selectedCustomerIds.has(c.customerId))
+                }
+                onCheckedChange={handleToggleSelectAll}
+              />
+              <span className="font-semibold text-foreground">
+                {selectedCustomerIds.size} dipilih
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2.5 text-xs gap-1.5"
+                onClick={handleBulkPrint}
+                title="Cetak Rekap"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cetak</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2.5 text-xs gap-1.5"
+                onClick={handleBulkSaveImage}
+                title="Simpan Gambar"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Gambar</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2.5 text-xs gap-1.5"
+                onClick={handleBulkShareImage}
+                title="Bagikan Rekap"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Bagikan</span>
+              </Button>
+              {selectedLunasCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-2.5 text-xs text-destructive hover:bg-destructive/10 border-destructive/30 gap-1.5"
+                  onClick={() => setBulkDeleteConfirmOpen(true)}
+                  title="Hapus Riwayat Lunas"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Hapus ({selectedLunasCount})</span>
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setSelectedCustomerIds(new Set())}
+              >
+                Batal
+              </Button>
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pelanggan Berhutang</p>
-            <p className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight mt-0.5">
-              {customers.length} <span className="text-sm font-normal text-muted-foreground">orang</span>
-            </p>
+        ) : (
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Cari pelanggan..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-10 text-sm"
+                disabled={isSearchDisabled}
+              />
+            </div>
+            {filteredCustomers.length > 0 && (
+              <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                <label
+                  className="flex items-center gap-2 cursor-pointer hover:text-foreground select-none"
+                  onClick={handleToggleSelectAll}
+                >
+                  <Checkbox
+                    checked={
+                      filteredCustomers.length > 0 &&
+                      filteredCustomers.every((c) => selectedCustomerIds.has(c.customerId))
+                    }
+                    onCheckedChange={handleToggleSelectAll}
+                  />
+                  <span>Pilih Semua ({filteredCustomers.length})</span>
+                </label>
+                <span className="font-medium text-foreground">
+                  Total: {formatCurrency(totalAllDebts)}
+                </span>
+              </div>
+            )}
           </div>
-        </div>
-
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input
-            placeholder="Cari pelanggan..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-10 text-sm"
-            disabled={isSearchDisabled}
-          />
-        </div>
+        )}
 
         {filteredCustomers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -432,106 +760,219 @@ export function DebtsPage() {
           </div>
         ) : isMobile ? (
           <div className="divide-y divide-border/30 border-y border-border/40">
-            {filteredCustomers.map((customer) => (
-              <div
-                key={customer.customerId}
-                className="py-3.5 px-1 flex items-center justify-between gap-3 cursor-pointer hover:bg-muted/30 transition-colors"
-                onClick={() => handleSelectCustomer(customer)}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <User className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-base truncate">
-                      {customer.customerName}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {customer.debtCount} transaksi
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right flex items-center gap-2 shrink-0">
-                  <p className="font-bold text-base text-destructive tabular-nums">
-                    {formatCurrency(customer.totalDebt)}
-                  </p>
-                  {customer.totalDebt === 0 && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+            {filteredCustomers.map((customer) => {
+              const isChecked = selectedCustomerIds.has(customer.customerId);
+              return (
+                <div
+                  key={customer.customerId}
+                  className={cn(
+                    "py-3 px-1 flex items-center justify-between gap-2.5 cursor-pointer hover:bg-muted/30 transition-colors",
+                    isChecked && "bg-primary/5"
+                  )}
+                  onClick={() => handleSelectCustomer(customer)}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className="p-1 -m-1 shrink-0"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDeleteClick(customer.customerId, customer.customerName);
+                        handleToggleCustomerSelect(customer.customerId);
                       }}
-                      title="Hapus Riwayat"
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
-                  <ChevronRight className="w-5 h-5 text-muted-foreground/60" />
+                      <Checkbox
+                        checked={isChecked}
+                        onCheckedChange={() => handleToggleCustomerSelect(customer.customerId)}
+                      />
+                    </div>
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <User className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm sm:text-base truncate">
+                        {customer.customerName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {customer.debtCount} transaksi
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right flex items-center gap-1.5 shrink-0">
+                    <p className="font-bold text-sm sm:text-base text-destructive tabular-nums">
+                      {formatCurrency(customer.totalDebt)}
+                    </p>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuItem onClick={() => handlePrintCustomer(customer)}>
+                          <Printer className="w-4 h-4 mr-2" />
+                          Cetak Nota / Dokumen
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleSaveImageCustomer(customer)}>
+                          <Download className="w-4 h-4 mr-2" />
+                          Simpan Gambar (PNG)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleShareImageCustomer(customer)}>
+                          <Share2 className="w-4 h-4 mr-2" />
+                          Bagikan Nota
+                        </DropdownMenuItem>
+                        {customer.totalDebt === 0 && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => handleDeleteClick(customer.customerId, customer.customerName)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Hapus Riwayat
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="w-full overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-border/40 hover:bg-transparent">
+                  <TableHead className="w-[40px] py-3 text-center">
+                    <Checkbox
+                      checked={
+                        filteredCustomers.length > 0 &&
+                        filteredCustomers.every((c) => selectedCustomerIds.has(c.customerId))
+                      }
+                      onCheckedChange={handleToggleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead className="py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pelanggan</TableHead>
                   <TableHead className="py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Jumlah Transaksi</TableHead>
                   <TableHead className="py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Hutang</TableHead>
-                  <TableHead className="py-3 text-right w-[80px] text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aksi</TableHead>
+                  <TableHead className="py-3 text-right w-[60px] text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCustomers.map((customer) => (
-                  <TableRow
-                    key={customer.customerId}
-                    className="cursor-pointer border-b border-border/30 hover:bg-muted/30 transition-colors"
-                    onClick={() => handleSelectCustomer(customer)}
-                  >
-                    <TableCell className="py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                          <User className="w-4 h-4 text-primary" />
-                        </div>
-                        <span className="font-medium text-sm">
-                          {customer.customerName}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center py-3.5">
-                      <Badge variant="outline" className="text-xs font-normal px-2.5 py-0.5">
-                        {customer.debtCount} transaksi
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-bold text-destructive tabular-nums py-3.5 text-sm">
-                      {formatCurrency(customer.totalDebt)}
-                    </TableCell>
-                    <TableCell className="text-right py-3.5">
-                      {customer.totalDebt === 0 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteClick(customer.customerId, customer.customerName);
-                          }}
-                          title="Hapus Riwayat"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                {filteredCustomers.map((customer) => {
+                  const isChecked = selectedCustomerIds.has(customer.customerId);
+                  return (
+                    <TableRow
+                      key={customer.customerId}
+                      className={cn(
+                        "cursor-pointer border-b border-border/30 hover:bg-muted/30 transition-colors",
+                        isChecked && "bg-primary/5"
                       )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      onClick={() => handleSelectCustomer(customer)}
+                    >
+                      <TableCell
+                        className="py-3.5 text-center"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleCustomerSelect(customer.customerId);
+                        }}
+                      >
+                        <Checkbox
+                          checked={isChecked}
+                          onCheckedChange={() => handleToggleCustomerSelect(customer.customerId)}
+                        />
+                      </TableCell>
+                      <TableCell className="py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <User className="w-4 h-4 text-primary" />
+                          </div>
+                          <span className="font-medium text-sm">
+                            {customer.customerName}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center py-3.5">
+                        <Badge variant="outline" className="text-xs font-normal px-2.5 py-0.5">
+                          {customer.debtCount} transaksi
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-destructive tabular-nums py-3.5 text-sm">
+                        {formatCurrency(customer.totalDebt)}
+                      </TableCell>
+                      <TableCell className="text-right py-3.5" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handlePrintCustomer(customer)}>
+                              <Printer className="w-4 h-4 mr-2" />
+                              Cetak Nota / Dokumen
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleSaveImageCustomer(customer)}>
+                              <Download className="w-4 h-4 mr-2" />
+                              Simpan Gambar (PNG)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleShareImageCustomer(customer)}>
+                              <Share2 className="w-4 h-4 mr-2" />
+                              Bagikan Nota
+                            </DropdownMenuItem>
+                            {customer.totalDebt === 0 && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => handleDeleteClick(customer.customerId, customer.customerName)}
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Hapus Riwayat
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
         )}
+
+        <ConfirmDeleteDialog
+          open={deleteConfirmOpen}
+          onOpenChange={setDeleteConfirmOpen}
+          title="Hapus Riwayat Hutang?"
+          description={
+            <>
+              Apakah Anda yakin ingin menghapus semua riwayat hutang dan pembayaran lunas untuk{" "}
+              <span className="font-semibold text-foreground">{customerToDelete?.name}</span>?
+              Tindakan ini tidak dapat dibatalkan.
+            </>
+          }
+          onConfirm={handleConfirmDelete}
+        />
+
+        <ConfirmDeleteDialog
+          open={bulkDeleteConfirmOpen}
+          onOpenChange={setBulkDeleteConfirmOpen}
+          title={`Hapus ${selectedLunasCount} Riwayat Pelanggan Lunas?`}
+          description="Semua catatan riwayat pembayaran dan hutang dari pelanggan yang sudah lunas yang dipilih akan dihapus secara permanen."
+          onConfirm={handleConfirmBulkDelete}
+        />
       </div>
     );
   }
