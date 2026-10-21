@@ -5,7 +5,7 @@ export { ReportsPage } from "./ReportsPage";
 export { SettingsPage } from "./SettingsPage";
 export { PricingPage } from "./pricing";
 export { CalculatorPage } from "./CalculatorPage";
-export { DebtsPage } from "./DebtsPage";
+export { CustomerDebtsPage, CustomerDebtsPage as DebtsPage } from "./CustomerDebtsPage";
 export { MasterDataPage } from "./MasterDataPage";
 
 export {

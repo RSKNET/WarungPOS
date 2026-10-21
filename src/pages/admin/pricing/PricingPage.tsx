@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Plus,
   Pencil,
@@ -39,9 +39,9 @@ import { formatCurrency, roundToThousand } from "@/lib/format";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { compareAlpha } from "@/lib/sorting";
-
-import { RuleDialog, BatchDialog } from "./components";
-import { TierInput } from "./types";
+import { RuleDialog } from "./RuleDialog";
+import { BatchDialog } from "./BatchDialog";
+import { TierInput } from "@/types/markup";
 
 export function PricingPage() {
   const [rules, setRules] = useState<MarkupRule[]>([]);
@@ -78,11 +78,11 @@ export function PricingPage() {
     setRules(getMarkupRules());
   };
 
-  const getCategoryName = (categoryId: string | null): string => {
+  const getCategoryName = useCallback((categoryId: string | null): string => {
     if (!categoryId) return "Semua Produk";
     const category = categories.find((c) => c.id === categoryId);
     return category?.name || "Kategori tidak ditemukan";
-  };
+  }, [categories]);
 
   const groupedRules = useMemo(() => {
     const groups: {
@@ -129,7 +129,7 @@ export function PricingPage() {
     const sorted: typeof groups = {};
     for (const key of sortedKeys) sorted[key] = groups[key];
     return sorted;
-  }, [rules, categories]);
+  }, [rules, getCategoryName]);
 
   const categoriesWithoutRules = useMemo(() => {
     const categoriesWithRules = new Set(

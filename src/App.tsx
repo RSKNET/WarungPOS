@@ -8,7 +8,7 @@ import { ThemeProvider } from "next-themes";
 import { Loader2 } from "lucide-react";
 import { CashierPage } from "./pages/CashierPage";
 import { Layout } from "./components/Layout";
-import { AdminLayout } from "./components/admin/AdminLayout";
+import { AdminLayout } from "./components/AdminLayout";
 import { PWAUpdateNotification } from "./components/PWAUpdateNotification";
 import NotFound from "./pages/NotFound";
 import { migrateFromLocalStorage } from "./database";
@@ -35,7 +35,7 @@ const CalculatorPage = lazy(() =>
   import("./pages/admin/CalculatorPage").then((m) => ({ default: m.CalculatorPage })),
 );
 const DebtsPage = lazy(() =>
-  import("./pages/admin/DebtsPage").then((m) => ({ default: m.DebtsPage })),
+  import("./pages/admin/CustomerDebtsPage").then((m) => ({ default: m.CustomerDebtsPage })),
 );
 const MasterDataPage = lazy(() =>
   import("./pages/admin/MasterDataPage").then((m) => ({ default: m.MasterDataPage })),

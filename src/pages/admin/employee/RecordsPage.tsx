@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   ArrowLeft, Printer, Download, Share2, MoreVertical,
   Banknote, CalendarIcon, X, User, ClipboardList,
@@ -156,11 +156,14 @@ export function RecordsPage() {
     if (settlementTarget) setSettlementAmount(Math.abs(settlementTarget.balance).toString());
   }, [settlementTarget]);
 
-  const allRecords = useMemo(() => [
-    ...getEarnings().map((e: EmployeeEarning) => ({ id: `earning-${e.id}`, employeeId: e.employeeId, employeeName: e.employeeName, type: "earning" as const, category: e.type === "salary" ? "Pokok" : "Komisi", description: e.description, amount: e.amount, createdAt: e.createdAt })),
-    ...getEmployeeDebts().map((d: EmployeeDebt) => ({ id: `debt-${d.id}`, employeeId: d.employeeId, employeeName: d.employeeName, type: "debt" as const, category: "Hutang", description: d.description, amount: d.amount, createdAt: d.createdAt })),
-    ...getSettlements().map((s: EmployeeSettlement) => ({ id: `settlement-${s.id}`, employeeId: s.employeeId, employeeName: s.employeeName, type: "settlement" as const, category: s.type === "admin_to_employee" ? "Dibayar Admin" : "Dibayar Pekerja", description: s.description, amount: s.amount, createdAt: s.createdAt })),
-  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [refreshKey]);
+  const allRecords = useMemo(() => {
+    void refreshKey;
+    return [
+      ...getEarnings().map((e: EmployeeEarning) => ({ id: `earning-${e.id}`, employeeId: e.employeeId, employeeName: e.employeeName, type: "earning" as const, category: e.type === "salary" ? "Pokok" : "Komisi", description: e.description, amount: e.amount, createdAt: e.createdAt })),
+      ...getEmployeeDebts().map((d: EmployeeDebt) => ({ id: `debt-${d.id}`, employeeId: d.employeeId, employeeName: d.employeeName, type: "debt" as const, category: "Hutang", description: d.description, amount: d.amount, createdAt: d.createdAt })),
+      ...getSettlements().map((s: EmployeeSettlement) => ({ id: `settlement-${s.id}`, employeeId: s.employeeId, employeeName: s.employeeName, type: "settlement" as const, category: s.type === "admin_to_employee" ? "Dibayar Admin" : "Dibayar Pekerja", description: s.description, amount: s.amount, createdAt: s.createdAt })),
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [refreshKey]);
 
   const employeeSummaries = useMemo(() => {
     const recordsByEmpId: Record<string, RecordItem[]> = {};
@@ -209,7 +212,7 @@ export function RecordsPage() {
       const updated = employeeSummaries.find((e) => e.employeeId === selectedEmployee.employeeId);
       if (updated) setSelectedEmployee(updated);
     }
-  }, [employeeSummaries]);
+  }, [employeeSummaries, selectedEmployee]);
 
   const filteredEmployees = useMemo(() => {
     const q = searchQuery.toLowerCase();
@@ -275,12 +278,13 @@ export function RecordsPage() {
     setRefreshKey((prev) => prev + 1);
   };
 
-  const handleExport = async (
-    action: "print" | "image" | "share",
-    targets: EmployeeRecordSummary[],
-    recordsOverride?: RecordItem[],
-    dateRange?: { from?: Date; to?: Date },
-  ) => {
+  const handleExport = useCallback(
+    async (
+      action: "print" | "image" | "share",
+      targets: EmployeeRecordSummary[],
+      recordsOverride?: RecordItem[],
+      dateRange?: { from?: Date; to?: Date },
+    ) => {
     if (!targets.length) return;
     const nowStr = format(new Date(), "yyyyMMdd-HHmmss");
 
@@ -325,13 +329,13 @@ export function RecordsPage() {
         toast({ title: "Gagal Membagikan", description: "Terjadi kesalahan saat membagikan rekap karyawan", variant: "destructive" });
       }
     }
-  };
+  }, [toast]);
 
   const bulkActions = useMemo<ActionBarItem[]>(() => [
     { id: "print", label: "Cetak", icon: Printer, onClick: () => handleExport("print", selectedEmployeesList), disabled: selectedEmployeeIds.size === 0 },
     { id: "image", label: "Gambar", icon: Download, onClick: () => handleExport("image", selectedEmployeesList), disabled: selectedEmployeeIds.size === 0 },
     { id: "share", label: "Bagikan", icon: Share2, onClick: () => handleExport("share", selectedEmployeesList), disabled: selectedEmployeeIds.size === 0 },
-  ], [selectedEmployeeIds, selectedEmployeesList]);
+  ], [selectedEmployeeIds, selectedEmployeesList, handleExport]);
 
   const detailRecords = useMemo(() => {
     if (!selectedEmployee) return [];

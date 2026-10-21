@@ -114,7 +114,7 @@ export function ProductsPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [refreshStoreData]);
 
   const variantMap = useMemo(() => {
     const map = new Map<string, ProductVariant[]>();

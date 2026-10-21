@@ -192,7 +192,6 @@ export async function downloadBackup(options?: BackupModulesOptions): Promise<{ 
   const date = new Date().toISOString().split("T")[0];
   const filename = `warungpos-backup-${date}.wbak`;
 
-  // 1. Android APK native bridge (simpan ke folder Download/WarungPOS/Backup)
   if (typeof window !== "undefined" && window.AndroidBridge) {
     const text = await blob.text();
     const success = window.AndroidBridge.saveToFolder
@@ -203,7 +202,6 @@ export async function downloadBackup(options?: BackupModulesOptions): Promise<{ 
     }
   }
 
-  // 2. Web Share API untuk mobile browser / PWA
   const file = new File([blob], filename, { type: "application/octet-stream" });
   if (typeof navigator !== "undefined" && navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
@@ -213,15 +211,12 @@ export async function downloadBackup(options?: BackupModulesOptions): Promise<{ 
       });
       return { savedInDownloads: true };
     } catch (e) {
-      if ((e as Error).name !== "AbortError") {
-        console.warn("Share failed, falling back to download link", e);
-      } else {
+      if ((e as Error).name === "AbortError") {
         return { savedInDownloads: true };
       }
     }
   }
 
-  // 3. Desktop web browser download
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.download = filename;

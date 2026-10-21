@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 
 export function useBulkSelection<T>(
   items: T[],
-  getId: (item: T) => string = (item: any) => item.id
+  getId: (item: T) => string = (item) => (item as { id: string }).id
 ) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 

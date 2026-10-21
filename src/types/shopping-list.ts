@@ -42,3 +42,12 @@ export interface ShoppingArchiveByCategory {
   totalItems: number;
 }
 
+export interface BulkItemInput {
+  id: string;
+  productName: string;
+  brand: string;
+  quantity: string;
+  unit: string;
+  photo?: string;
+}
+

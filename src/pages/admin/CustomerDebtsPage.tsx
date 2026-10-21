@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Debt } from "@/types/debt";
 import { formatCurrency } from "@/lib/format";
 import {
@@ -95,7 +95,7 @@ interface DebtTableRow {
   debtId?: string;
 }
 
-export function DebtsPage() {
+export function CustomerDebtsPage() {
   const [customers, setCustomers] = useState<CustomerDebtSummary[]>([]);
   const [selectedCustomer, setSelectedCustomer] =
     useState<CustomerDebtSummary | null>(null);
@@ -437,11 +437,11 @@ export function DebtsPage() {
     }
   };
 
-  const handlePrintCustomer = (customer: CustomerDebtSummary) => {
+  const handlePrintCustomer = useCallback((customer: CustomerDebtSummary) => {
     const options = buildCustomerStatementOptions(customer);
     const printDocTitle = `Nota-Hutang-${customer.customerName.replace(/\s+/g, "-")}`;
     printStatementDocument(options, printDocTitle);
-  };
+  }, []);
 
   const handleSaveImageCustomer = async (customer: CustomerDebtSummary) => {
     const options = buildCustomerStatementOptions(customer);
@@ -510,7 +510,7 @@ export function DebtsPage() {
 
   const isBulkPrintingRef = useRef(false);
 
-  const handleBulkPrint = () => {
+  const handleBulkPrint = useCallback(() => {
     if (isBulkPrintingRef.current) return;
     if (selectedCustomersList.length === 0) return;
     isBulkPrintingRef.current = true;
@@ -525,9 +525,9 @@ export function DebtsPage() {
     const optionsList = selectedCustomersList.map((c) => buildCustomerStatementOptions(c));
     const title = `Nota-Hutang-Massal-${format(new Date(), "yyyyMMdd-HHmm")}`;
     printMultipleStatementDocuments(optionsList, title);
-  };
+  }, [selectedCustomersList, handlePrintCustomer]);
 
-  const handleBulkSaveImage = async () => {
+  const handleBulkSaveImage = useCallback(async () => {
     if (selectedCustomersList.length === 0) return;
     try {
       const items = selectedCustomersList.map((c) => ({
@@ -553,9 +553,9 @@ export function DebtsPage() {
         variant: "destructive",
       });
     }
-  };
+  }, [selectedCustomersList]);
 
-  const handleBulkShareImage = async () => {
+  const handleBulkShareImage = useCallback(async () => {
     if (selectedCustomersList.length === 0) return;
     try {
       const items = selectedCustomersList.map((c) => ({
@@ -577,7 +577,7 @@ export function DebtsPage() {
         variant: "destructive",
       });
     }
-  };
+  }, [selectedCustomersList]);
 
   const handleConfirmBulkDelete = () => {
     const lunasList = selectedCustomersList.filter((c) => c.totalDebt === 0);
@@ -1177,4 +1177,6 @@ export function DebtsPage() {
     </div>
   );
 }
+
+export { CustomerDebtsPage as DebtsPage };
 

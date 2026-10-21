@@ -22,8 +22,8 @@ import {
   Handshake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ThemeToggle } from "../ThemeToggle";
-import { Button } from "../ui/button";
+import { ThemeToggle } from "./ThemeToggle";
+import { Button } from "./ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Collapsible,

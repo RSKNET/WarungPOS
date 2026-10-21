@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   ArrowLeft, Printer, Download, Share2, MoreVertical,
   CalendarIcon, X, User, CreditCard, Trash2, ArrowDownRight, ArrowUpRight,
@@ -137,6 +137,7 @@ export function LedgerPage() {
   const { searchQuery, setSearchQuery, isSearchDisabled } = useSearchInput([paymentDialogOpen, deleteDialogOpen]);
 
   const partnersWithBalances = useMemo<PartnerWithBalance[]>(() => {
+    void refreshKey;
     const balanceMap = getPartnerBalancesMap();
     const incoming = getIncoming();
     const outgoing = getOutgoing();
@@ -246,12 +247,13 @@ export function LedgerPage() {
     setEntryToDelete(null);
   };
 
-  const handleExport = async (
-    action: "print" | "image" | "share",
-    targets: PartnerWithBalance[],
-    entriesOverride?: LedgerEntry[],
-    dateRange?: { from?: Date; to?: Date }
-  ) => {
+  const handleExport = useCallback(
+    async (
+      action: "print" | "image" | "share",
+      targets: PartnerWithBalance[],
+      entriesOverride?: LedgerEntry[],
+      dateRange?: { from?: Date; to?: Date }
+    ) => {
     if (!targets.length) return;
     const nowStr = format(new Date(), "yyyyMMdd-HHmmss");
     const isAndroid = typeof window !== "undefined" && window.AndroidBridge;
@@ -291,7 +293,7 @@ export function LedgerPage() {
         toast({ title: "Gagal Membagikan", description: "Terjadi kesalahan saat membagikan rekap mitra", variant: "destructive" });
       }
     }
-  };
+  }, [toast]);
 
   const bulkActions = useMemo<ActionBarItem[]>(
     () => [
@@ -299,10 +301,11 @@ export function LedgerPage() {
       { id: "image", label: "Gambar", icon: Download, onClick: () => handleExport("image", selectedPartnersList), disabled: selectedPartnerIds.size === 0 },
       { id: "share", label: "Bagikan", icon: Share2, onClick: () => handleExport("share", selectedPartnersList), disabled: selectedPartnerIds.size === 0 },
     ],
-    [selectedPartnerIds, selectedPartnersList]
+    [selectedPartnerIds, selectedPartnersList, handleExport]
   );
 
   const rawLedgerEntries = useMemo(() => {
+    void refreshKey;
     return selectedPartnerId ? getPartnerLedger(selectedPartnerId) : [];
   }, [selectedPartnerId, refreshKey]);
 

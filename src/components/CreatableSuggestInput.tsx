@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { toTitleCase } from "@/lib/text";
 import { SuggestInput, SuggestOption } from "@/components/SuggestInput";
-import { useUnitStore, useCategoryStore } from "@/stores";
 
 export interface CreatableSuggestInputProps {
   value: string;
@@ -79,77 +78,7 @@ export function CreatableSuggestInput({
   );
 }
 
-export interface UnitSelectProps {
-  value: string;
-  units: string[];
-  onValueChange: (value: string) => void;
-  onUnitsChanged?: () => void;
-}
-
-export function UnitSelect({
-  value,
-  units,
-  onValueChange,
-  onUnitsChanged,
-}: UnitSelectProps) {
-  const { addUnit: storeAddUnit } = useUnitStore();
-
-  return (
-    <CreatableSuggestInput
-      value={value}
-      items={units}
-      placeholder="Pcs / Dus / Renceng..."
-      onValueChange={onValueChange}
-      onCreateItem={(name) => {
-        const result = storeAddUnit(name);
-        if (result) {
-          onUnitsChanged?.();
-          return result.name;
-        }
-        return name;
-      }}
-    />
-  );
-}
-
-export interface CategorySelectProps {
-  value: string;
-  categories: string[];
-  onValueChange: (value: string) => void;
-  onCategoriesChanged?: () => void;
-}
-
-function generatePrefix(name: string): string {
-  const clean = name.replace(/[^a-zA-Z]/g, "").toUpperCase();
-  if (clean.length <= 3) return clean;
-  const consonants = clean.replace(/[AIUEO\s]/g, "");
-  if (consonants.length >= 3) return consonants.substring(0, 3);
-  return clean.substring(0, 3);
-}
-
-export function CategorySelect({
-  value,
-  categories,
-  onValueChange,
-  onCategoriesChanged,
-}: CategorySelectProps) {
-  const { addCategory: storeAddCategory } = useCategoryStore();
-
-  return (
-    <CreatableSuggestInput
-      value={value}
-      items={categories}
-      placeholder="Ketik atau cari kategori..."
-      onValueChange={onValueChange}
-      onCreateItem={(name) => {
-        const prefix = generatePrefix(name);
-        const result = storeAddCategory(name, prefix);
-        if (result) {
-          onCategoriesChanged?.();
-          return result.name;
-        }
-        return name;
-      }}
-    />
-  );
-}
+export { UnitSelect } from "./UnitSelect";
+export type { UnitSelectProps } from "./UnitSelect";
+export { CategorySelect } from "./CategorySelect";
+export type { CategorySelectProps } from "./CategorySelect";

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { ShoppingCategory, ShoppingItem } from "@/types/shopping-list";
 import {
   getShoppingCategories,
@@ -35,15 +35,12 @@ import {
   saveShoppingListImage,
   shareShoppingListImage,
 } from "@/lib/statement-document";
-import {
-  CategoryDialog,
-  EditItemDialog,
-  BulkAddDialog,
-  MoveDialog,
-  PhotoModal,
-  ShoppingCategorySection,
-} from "./components";
-import { BulkItemInput } from "./types";
+import { CategoryDialog, BulkAddDialog } from "./ShoppingBatchDialog";
+import { EditItemDialog } from "./EditItemDialog";
+import { MoveDialog } from "./MoveDialog";
+import { ShoppingCategorySection } from "./ShoppingCategorySection";
+import { PhotoModal } from "@/components/PhotoModal";
+import { BulkItemInput } from "@/types/shopping-list";
 
 export function ListPage() {
   const { toast } = useToast();
@@ -62,7 +59,7 @@ export function ListPage() {
       });
       refreshData();
     }
-  }, []);
+  }, [toast]);
 
   const [formOpen, setFormOpen] = useState(false);
   const [bulkFormOpen, setBulkFormOpen] = useState(false);
@@ -120,12 +117,12 @@ export function ListPage() {
     return items.filter((i) => selectedItems.has(i.id));
   }, [items, selectedItems]);
 
-  const handlePrint = () => {
+  const handlePrint = useCallback(() => {
     const targetItems = selectedItems.size > 0 ? selectedItemsList : items;
     exportShoppingListPdf(targetItems, categories);
-  };
+  }, [selectedItems.size, selectedItemsList, items, categories]);
 
-  const handleSaveImage = async () => {
+  const handleSaveImage = useCallback(async () => {
     const targetItems = selectedItems.size > 0 ? selectedItemsList : items;
     try {
       await saveShoppingListImage(targetItems, categories);
@@ -136,9 +133,9 @@ export function ListPage() {
         variant: "destructive",
       });
     }
-  };
+  }, [selectedItems.size, selectedItemsList, items, categories, toast]);
 
-  const handleShareImage = async () => {
+  const handleShareImage = useCallback(async () => {
     const targetItems = selectedItems.size > 0 ? selectedItemsList : items;
     try {
       await shareShoppingListImage(targetItems, categories);
@@ -149,7 +146,7 @@ export function ListPage() {
         variant: "destructive",
       });
     }
-  };
+  }, [selectedItems.size, selectedItemsList, items, categories, toast]);
 
   const handlePrintCategory = (category: ShoppingCategory) => {
     const categoryItems = items.filter((i) => i.categoryId === category.id);

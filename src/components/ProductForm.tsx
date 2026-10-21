@@ -130,7 +130,7 @@ export function ProductForm({
       setCategory("");
       setVariants([emptyVariant("")]);
     }
-  }, [open]);
+  }, [open, isEditing, product, existingVariants]);
 
   const applyMarkup = (idx: number, costStr: string) => {
     const cost = parseInt(costStr) || 0;

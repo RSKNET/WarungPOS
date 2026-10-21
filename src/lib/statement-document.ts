@@ -613,7 +613,8 @@ export async function shareMultipleStatementImages(
         title: title || "Nota Catatan Hutang",
       });
       return true;
-    } catch {
+    } catch (err) {
+      void err;
     }
   }
 
@@ -991,7 +992,8 @@ export async function shareShoppingListImage(
         title: `Daftar Belanja (${targetCategories.length} Kategori) - ${dateFormatted}`,
       });
       return true;
-    } catch {
+    } catch (err) {
+      void err;
     }
   }
 

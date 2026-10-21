@@ -81,7 +81,6 @@ export function ShoppingCategorySection({
   const selectedInCategory = categoryItems.filter((i) => selectedItems.has(i.id));
   const allSelectedPurchased =
     selectedInCategory.length > 0 && selectedInCategory.every((i) => i.isPurchased);
-  const purchasedCount = categoryItems.filter((i) => i.isPurchased).length;
 
   return (
     <div className="border-b border-border/40 pb-4">

@@ -8,9 +8,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UnitSelect } from "@/components/CreatableSuggestInput";
+import { UnitSelect } from "@/components/UnitSelect";
 import { handleTitleCaseChange } from "@/lib/text";
-import { PhotoPicker } from "./PhotoPicker";
+import { PhotoPicker } from "@/components/PhotoPicker";
 
 interface ShoppingEditItemDialogProps {
   open: boolean;

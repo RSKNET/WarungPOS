@@ -72,7 +72,9 @@ export function printDocument(htmlContent: string, jobName: string = "Dokumen-Wa
         if (document.body.contains(iframe)) {
           document.body.removeChild(iframe);
         }
-      } catch {}
+      } catch (err) {
+        void err;
+      }
     };
 
     iframe.contentWindow.onafterprint = cleanup;

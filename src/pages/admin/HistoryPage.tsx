@@ -26,8 +26,14 @@ export function HistoryPage() {
     isSearchDisabled,
   } = useSearchInput([receiptOpen]);
 
-  const todayTransactions = useMemo(() => getTodayTransactions(), [transactions]);
-  const todayRevenue = useMemo(() => getTodayRevenue(), [transactions]);
+  const todayTransactions = useMemo(() => {
+    void transactions;
+    return getTodayTransactions();
+  }, [transactions]);
+  const todayRevenue = useMemo(() => {
+    void transactions;
+    return getTodayRevenue();
+  }, [transactions]);
 
   const filteredTransactions = useMemo(() => {
     if (!search) return transactions;

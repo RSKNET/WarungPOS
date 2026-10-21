@@ -52,6 +52,7 @@ export function ListPage() {
     const debts = getEmployeeDebts();
     const settlements = getSettlements();
 
+    void employees;
     const map: Record<string, number> = {};
 
     earnings.forEach((e) => {

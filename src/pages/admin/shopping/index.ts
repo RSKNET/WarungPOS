@@ -1,7 +1,9 @@
-export { ListPage, ListPage as ShoppingListPage } from "./ListPage";
+export { ListPage, ListPage as ShoppingListPage } from "./ShoppingListPage";
 export { ArchivePage, ArchivePage as ShoppingArchivePage } from "./ArchivePage";
-export * from "./components";
-export * from "./types";
+export { ShoppingBatchDialog, CategoryDialog, BulkAddDialog } from "./ShoppingBatchDialog";
+export { EditItemDialog } from "./EditItemDialog";
+export { MoveDialog } from "./MoveDialog";
+export { ShoppingCategorySection } from "./ShoppingCategorySection";
 export {
   exportShoppingListPdf,
   saveShoppingListImage,

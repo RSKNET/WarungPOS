@@ -35,7 +35,7 @@ export function ArchivePage() {
       });
     }
     refreshData();
-  }, []);
+  }, [toast]);
 
   const refreshData = () => {
     const data = getArchivedItemsByCategory();
@@ -122,10 +122,9 @@ export function ArchivePage() {
                     <span className="font-bold text-base text-foreground">
                       {category.categoryName}
                     </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-muted/60 text-muted-foreground border border-border/40">
-                      <span className="font-semibold tabular-nums text-foreground">{category.totalItems}</span>
-                      <span className="text-[10px]">item</span>
-                    </span>
+                    <Badge variant="outline" className="text-xs font-normal px-2.5 py-0.5">
+                      {category.totalItems} item
+                    </Badge>
                   </div>
                 </button>
               </div>
