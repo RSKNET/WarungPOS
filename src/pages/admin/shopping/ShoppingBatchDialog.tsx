@@ -104,7 +104,9 @@ export function ShoppingBatchDialog({
               <Input
                 placeholder="Contoh: Bumbu Dapur, Sembako, Minuman..."
                 value={categoryName}
-                onChange={(e) => setCategoryName?.(handleTitleCaseChange(e.target.value))}
+                onChange={(e) =>
+                  handleTitleCaseChange(e, (val) => setCategoryName?.(val))
+                }
                 className="h-10 text-sm"
                 autoFocus
               />
@@ -172,7 +174,7 @@ export function ShoppingBatchDialog({
                         placeholder="Contoh: Beras Ramos..."
                         value={row.productName}
                         onChange={(e) =>
-                          updateItemRow(row.id, "productName", handleTitleCaseChange(e.target.value))
+                          handleTitleCaseChange(e, (val) => updateItemRow(row.id, "productName", val))
                         }
                         className="h-9 text-xs sm:text-sm"
                       />
@@ -183,7 +185,7 @@ export function ShoppingBatchDialog({
                         placeholder="Contoh: Sania, Gulaku..."
                         value={row.brand}
                         onChange={(e) =>
-                          updateItemRow(row.id, "brand", handleTitleCaseChange(e.target.value))
+                          handleTitleCaseChange(e, (val) => updateItemRow(row.id, "brand", val))
                         }
                         className="h-9 text-xs sm:text-sm"
                       />
