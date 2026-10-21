@@ -17,24 +17,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Trash2,
   FolderPlus,
   Search,
-  FileDown,
   ShoppingCart,
   Archive,
-  MoreVertical,
+  Printer,
+  Download,
+  Share2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchInput } from "@/hooks/use-search-input";
 import { sortAlpha } from "@/lib/sorting";
-import { exportShoppingListPdf } from "./pdf";
+import { ResponsiveActionBar, ActionBarItem } from "@/components/ResponsiveActionBar";
+import {
+  exportShoppingListPdf,
+  saveShoppingListImage,
+  shareShoppingListImage,
+} from "@/lib/statement-document";
 import {
   CategoryDialog,
   EditItemDialog,
@@ -116,14 +116,120 @@ export function ListPage() {
   ]);
 
   const purchasedItems = items.filter((i) => i.isPurchased).length;
-  const hasMoreActions =
-    selectedItems.size > 0 ||
-    purchasedItems > 0 ||
-    (categories.length > 0 && items.length > 0);
+  const selectedItemsList = useMemo(() => {
+    return items.filter((i) => selectedItems.has(i.id));
+  }, [items, selectedItems]);
 
-  const handleExportPDF = () => {
-    exportShoppingListPdf(items, categories);
+  const handlePrint = () => {
+    const targetItems = selectedItems.size > 0 ? selectedItemsList : items;
+    exportShoppingListPdf(targetItems, categories);
   };
+
+  const handleSaveImage = async () => {
+    const targetItems = selectedItems.size > 0 ? selectedItemsList : items;
+    try {
+      await saveShoppingListImage(targetItems, categories);
+    } catch {
+      toast({
+        title: "Gagal Menyimpan",
+        description: "Terjadi kesalahan saat menyimpan gambar daftar belanja",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleShareImage = async () => {
+    const targetItems = selectedItems.size > 0 ? selectedItemsList : items;
+    try {
+      await shareShoppingListImage(targetItems, categories);
+    } catch {
+      toast({
+        title: "Gagal Membagikan",
+        description: "Terjadi kesalahan saat membagikan gambar daftar belanja",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePrintCategory = (category: ShoppingCategory) => {
+    const categoryItems = items.filter((i) => i.categoryId === category.id);
+    exportShoppingListPdf(categoryItems, [category]);
+  };
+
+  const handleSaveImageCategory = async (category: ShoppingCategory) => {
+    const categoryItems = items.filter((i) => i.categoryId === category.id);
+    try {
+      await saveShoppingListImage(categoryItems, [category]);
+    } catch {
+      toast({
+        title: "Gagal Menyimpan",
+        description: `Gagal menyimpan gambar kategori ${category.name}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleShareImageCategory = async (category: ShoppingCategory) => {
+    const categoryItems = items.filter((i) => i.categoryId === category.id);
+    try {
+      await shareShoppingListImage(categoryItems, [category]);
+    } catch {
+      toast({
+        title: "Gagal Membagikan",
+        description: `Gagal membagikan gambar kategori ${category.name}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const pageActions = useMemo<ActionBarItem[]>(() => {
+    const list: ActionBarItem[] = [
+      {
+        id: "print",
+        label: "Cetak",
+        icon: Printer,
+        onClick: handlePrint,
+        disabled: items.length === 0,
+      },
+      {
+        id: "image",
+        label: "Gambar",
+        icon: Download,
+        onClick: handleSaveImage,
+        disabled: items.length === 0,
+      },
+      {
+        id: "share",
+        label: "Bagikan",
+        icon: Share2,
+        onClick: handleShareImage,
+        disabled: items.length === 0,
+      },
+    ];
+
+    if (purchasedItems > 0) {
+      list.push({
+        id: "archive",
+        label: `Arsipkan (${purchasedItems})`,
+        icon: Archive,
+        onClick: () => setArchiveConfirmOpen(true),
+        disabled: false,
+      });
+    }
+
+    if (selectedItems.size > 0) {
+      list.push({
+        id: "delete",
+        label: "Hapus",
+        icon: Trash2,
+        onClick: () => setClearConfirmOpen(true),
+        destructive: true,
+        disabled: false,
+      });
+    }
+
+    return list;
+  }, [items.length, selectedItems.size, purchasedItems, handlePrint, handleSaveImage, handleShareImage]);
 
   const toggleCollapse = (categoryId: string) => {
     setCollapsedCategories((prev) => {
@@ -487,62 +593,42 @@ export function ListPage() {
   return (
     <div className="space-y-6">
 
-      <div className="flex gap-2.5 items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Cari item atau kategori..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-10 text-sm"
-            maxLength={50}
-            disabled={isSearchDisabled}
-          />
-        </div>
-        <Button
-          className="sm:hidden shrink-0 h-10 w-10 p-0"
-          onClick={openAddCategoryDialog}
-          title="Tambah Kategori"
-        >
-          <FolderPlus className="h-4 w-4" />
-        </Button>
-        <Button
-          className="hidden sm:inline-flex h-10 px-4 text-sm font-medium gap-2"
-          onClick={openAddCategoryDialog}
-        >
-          <FolderPlus className="h-4 w-4" />
-          Tambah Kategori
-        </Button>
-        {hasMoreActions && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="h-10 w-10 p-0 shrink-0">
-                <MoreVertical className="h-4 w-4" />
+      <ResponsiveActionBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Cari item atau kategori..."
+        isSearchDisabled={isSearchDisabled}
+        selectedCount={selectedItems.size}
+        actions={pageActions}
+        rightElement={
+          <div className="flex items-center gap-1.5 shrink-0">
+            {selectedItems.size > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setSelectedItems(new Set())}
+              >
+                Batal
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {selectedItems.size > 0 && (
-                <DropdownMenuItem onClick={() => setClearConfirmOpen(true)} className="text-destructive focus:text-destructive">
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Hapus Dipilih ({selectedItems.size})
-                </DropdownMenuItem>
-              )}
-              {purchasedItems > 0 && (
-                <DropdownMenuItem onClick={() => setArchiveConfirmOpen(true)}>
-                  <Archive className="w-4 h-4 mr-2 text-blue-600" />
-                  Arsipkan ({purchasedItems})
-                </DropdownMenuItem>
-              )}
-              {categories.length > 0 && items.length > 0 && (
-                <DropdownMenuItem onClick={handleExportPDF}>
-                  <FileDown className="w-4 h-4 mr-2" />
-                  Export PDF
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
+            )}
+            <Button
+              className="sm:hidden shrink-0 h-10 w-10 p-0"
+              onClick={openAddCategoryDialog}
+              title="Tambah Kategori"
+            >
+              <FolderPlus className="h-4 w-4" />
+            </Button>
+            <Button
+              className="hidden sm:inline-flex h-10 px-4 text-sm font-medium gap-2 shrink-0"
+              onClick={openAddCategoryDialog}
+            >
+              <FolderPlus className="h-4 w-4" />
+              Tambah Kategori
+            </Button>
+          </div>
+        }
+      />
 
       {categories.length === 0 ? (
         <div className="py-16 text-center text-muted-foreground">
@@ -603,6 +689,9 @@ export function ListPage() {
                   setDeleteConfirmOpen(true);
                 }}
                 onViewPhoto={setViewPhoto}
+                onPrintCategory={handlePrintCategory}
+                onSaveImageCategory={handleSaveImageCategory}
+                onShareImageCategory={handleShareImageCategory}
               />
             );
           })}

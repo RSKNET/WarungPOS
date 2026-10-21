@@ -122,9 +122,10 @@ export function ArchivePage() {
                     <span className="font-bold text-base text-foreground">
                       {category.categoryName}
                     </span>
-                    <Badge variant="secondary" className="text-xs px-2 py-0.5">
-                      {category.totalItems} item
-                    </Badge>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-muted/60 text-muted-foreground border border-border/40">
+                      <span className="font-semibold tabular-nums text-foreground">{category.totalItems}</span>
+                      <span className="text-[10px]">item</span>
+                    </span>
                   </div>
                 </button>
               </div>

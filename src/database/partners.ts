@@ -210,6 +210,56 @@ export function getPartnerBalance(partnerId: string): PartnerBalanceSummary {
   };
 }
 
+export function getPartnerBalancesMap(): Map<string, PartnerBalanceSummary> {
+  const incoming = getIncoming();
+  const outgoing = getOutgoing();
+  const payments = getPartnerPayments();
+
+  const map = new Map<string, PartnerBalanceSummary>();
+
+  const getSummary = (partnerId: string): PartnerBalanceSummary => {
+    let s = map.get(partnerId);
+    if (!s) {
+      s = {
+        totalIncomingLedger: 0,
+        totalPaidDebt: 0,
+        totalOutgoing: 0,
+        totalWithdrawn: 0,
+        balance: 0,
+      };
+      map.set(partnerId, s);
+    }
+    return s;
+  };
+
+  for (const x of incoming) {
+    if (x.paymentMethod === "offset_ledger") {
+      const s = getSummary(x.partnerId);
+      s.totalIncomingLedger += x.totalValue;
+      s.balance += x.totalValue;
+    }
+  }
+
+  for (const x of outgoing) {
+    const s = getSummary(x.partnerId);
+    s.totalOutgoing += x.totalValue;
+    s.balance -= x.totalValue;
+  }
+
+  for (const x of payments) {
+    const s = getSummary(x.partnerId);
+    if (x.type === "pay_debt") {
+      s.totalPaidDebt += x.amount;
+      s.balance += x.amount;
+    } else {
+      s.totalWithdrawn += x.amount;
+      s.balance -= x.amount;
+    }
+  }
+
+  return map;
+}
+
 export interface LedgerEntry {
   id: string;
   date: string;

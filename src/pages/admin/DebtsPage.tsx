@@ -62,6 +62,8 @@ import {
 } from "@/database/debts";
 import { toast } from "@/hooks/use-toast";
 import { useSearchInput } from "@/hooks/use-search-input";
+import { useBulkSelection } from "@/hooks/use-bulk-selection";
+import { ResponsiveActionBar, ActionBarItem } from "@/components/ResponsiveActionBar";
 import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -102,7 +104,6 @@ export function DebtsPage() {
   const [payDialogOpen, setPayDialogOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<{ id: string; name: string } | null>(null);
-  const [selectedCustomerIds, setSelectedCustomerIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
 
   const {
@@ -484,9 +485,24 @@ export function DebtsPage() {
     }
   };
 
-  const selectedCustomersList = useMemo(() => {
-    return customers.filter((c) => selectedCustomerIds.has(c.customerId));
-  }, [customers, selectedCustomerIds]);
+  const filteredCustomers = useMemo(() => {
+    const sorted = sortAlpha(customers, "customerName");
+    if (!search.trim()) return sorted;
+    const lowerSearch = search.toLowerCase();
+    return sorted.filter((c) =>
+      c.customerName.toLowerCase().includes(lowerSearch),
+    );
+  }, [search, customers]);
+
+  const {
+    selectedIds: selectedCustomerIds,
+    setSelectedIds: setSelectedCustomerIds,
+    selectedCount,
+    selectedItems: selectedCustomersList,
+    isAllSelected,
+    toggleSelect: handleToggleCustomerSelect,
+    selectAll: handleToggleSelectAll,
+  } = useBulkSelection(filteredCustomers, (c) => c.customerId);
 
   const selectedLunasCount = useMemo(() => {
     return selectedCustomersList.filter((c) => c.totalDebt === 0).length;
@@ -563,26 +579,6 @@ export function DebtsPage() {
     }
   };
 
-  const handleToggleCustomerSelect = (customerId: string) => {
-    setSelectedCustomerIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(customerId)) {
-        next.delete(customerId);
-      } else {
-        next.add(customerId);
-      }
-      return next;
-    });
-  };
-
-  const handleToggleSelectAll = () => {
-    if (filteredCustomers.every((c) => selectedCustomerIds.has(c.customerId))) {
-      setSelectedCustomerIds(new Set());
-    } else {
-      setSelectedCustomerIds(new Set(filteredCustomers.map((c) => c.customerId)));
-    }
-  };
-
   const handleConfirmBulkDelete = () => {
     const lunasList = selectedCustomersList.filter((c) => c.totalDebt === 0);
     if (lunasList.length === 0) return;
@@ -601,139 +597,65 @@ export function DebtsPage() {
     loadCustomers();
   };
 
-  const filteredCustomers = useMemo(() => {
-    const sorted = sortAlpha(customers, "customerName");
-    if (!search.trim()) return sorted;
-    const lowerSearch = search.toLowerCase();
-    return sorted.filter((c) =>
-      c.customerName.toLowerCase().includes(lowerSearch),
-    );
-  }, [search, customers]);
+  const bulkActions = useMemo<ActionBarItem[]>(() => {
+    const list: ActionBarItem[] = [
+      {
+        id: "print",
+        label: "Cetak",
+        icon: Printer,
+        onClick: handleBulkPrint,
+        disabled: selectedCount === 0,
+      },
+      {
+        id: "image",
+        label: "Gambar",
+        icon: Download,
+        onClick: handleBulkSaveImage,
+        disabled: selectedCount === 0,
+      },
+      {
+        id: "share",
+        label: "Bagikan",
+        icon: Share2,
+        onClick: handleBulkShareImage,
+        disabled: selectedCount === 0,
+      },
+    ];
+    if (selectedLunasCount > 0) {
+      list.push({
+        id: "delete-lunas",
+        label: `Hapus Lunas (${selectedLunasCount})`,
+        icon: Trash2,
+        onClick: () => setBulkDeleteConfirmOpen(true),
+        destructive: true,
+      });
+    }
+    return list;
+  }, [selectedCount, selectedLunasCount, handleBulkPrint, handleBulkSaveImage, handleBulkShareImage]);
 
   if (!selectedCustomer) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <Input
-              placeholder="Cari pelanggan..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-10 text-sm"
-              disabled={isSearchDisabled}
-            />
-          </div>
-
-          <div className="sm:hidden shrink-0">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 relative"
-                  disabled={selectedCustomerIds.size === 0}
-                >
-                  <MoreVertical className="w-4 h-4" />
-                  {selectedCustomerIds.size > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
-                      {selectedCustomerIds.size}
-                    </span>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleBulkPrint} disabled={selectedCustomerIds.size === 0}>
-                  <Printer className="w-4 h-4 mr-2" />
-                  Cetak Nota{selectedCustomerIds.size > 0 ? ` (${selectedCustomerIds.size})` : ""}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleBulkSaveImage} disabled={selectedCustomerIds.size === 0}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Simpan Gambar{selectedCustomerIds.size > 0 ? ` (${selectedCustomerIds.size})` : ""}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleBulkShareImage} disabled={selectedCustomerIds.size === 0}>
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Bagikan Nota{selectedCustomerIds.size > 0 ? ` (${selectedCustomerIds.size})` : ""}
-                </DropdownMenuItem>
-                {selectedLunasCount > 0 && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => setBulkDeleteConfirmOpen(true)}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Hapus Riwayat Lunas ({selectedLunasCount})
-                    </DropdownMenuItem>
-                  </>
-                )}
-                {selectedCustomerIds.size > 0 && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setSelectedCustomerIds(new Set())}>
-                      <X className="w-4 h-4 mr-2" />
-                      Batal Pilihan ({selectedCustomerIds.size})
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-1.5 shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-10 px-3 text-xs gap-1.5"
-              onClick={handleBulkPrint}
-              disabled={selectedCustomerIds.size === 0}
-            >
-              <Printer className="w-4 h-4" />
-              <span>Cetak{selectedCustomerIds.size > 0 ? ` (${selectedCustomerIds.size})` : ""}</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-10 px-3 text-xs gap-1.5"
-              onClick={handleBulkSaveImage}
-              disabled={selectedCustomerIds.size === 0}
-            >
-              <Download className="w-4 h-4" />
-              <span>Gambar</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-10 px-3 text-xs gap-1.5"
-              onClick={handleBulkShareImage}
-              disabled={selectedCustomerIds.size === 0}
-            >
-              <Share2 className="w-4 h-4" />
-              <span>Bagikan</span>
-            </Button>
-            {selectedLunasCount > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-10 px-3 text-xs text-destructive hover:bg-destructive/10 border-destructive/30 gap-1.5"
-                onClick={() => setBulkDeleteConfirmOpen(true)}
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Hapus ({selectedLunasCount})</span>
-              </Button>
-            )}
-            {selectedCustomerIds.size > 0 && (
+        <ResponsiveActionBar
+          searchQuery={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Cari pelanggan..."
+          isSearchDisabled={isSearchDisabled}
+          selectedCount={selectedCount}
+          actions={bulkActions}
+          rightElement={
+            selectedCount > 0 ? (
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-10 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground"
                 onClick={() => setSelectedCustomerIds(new Set())}
               >
                 Batal
               </Button>
-            )}
-          </div>
-        </div>
+            ) : null
+          }
+        />
 
         {filteredCustomers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">

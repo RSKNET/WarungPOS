@@ -60,35 +60,47 @@ export function DashboardPage() {
     };
   }, []);
 
-  const calculateDayRevenue = (dateStr: string) => {
-    const cashRevenue = transactions
-      .filter(
-        (t) =>
-          new Date(t.createdAt).toDateString() === dateStr &&
-          t.paymentType !== "debt",
-      )
-      .reduce((sum, t) => sum + t.total, 0);
+  const dateAggregates = useMemo(() => {
+    const map = new Map<string, { cashRevenue: number; paymentRevenue: number; txCount: number }>();
 
-    const paymentRevenue = debtPayments
-      .filter((p) => new Date(p.createdAt).toDateString() === dateStr)
-      .reduce((sum, p) => sum + p.amount, 0);
+    const getEntry = (ds: string) => {
+      let entry = map.get(ds);
+      if (!entry) {
+        entry = { cashRevenue: 0, paymentRevenue: 0, txCount: 0 };
+        map.set(ds, entry);
+      }
+      return entry;
+    };
 
-    return cashRevenue + paymentRevenue;
-  };
+    for (const t of transactions) {
+      const ds = new Date(t.createdAt).toDateString();
+      const entry = getEntry(ds);
+      entry.txCount += 1;
+      if (t.paymentType !== "debt") {
+        entry.cashRevenue += t.total;
+      }
+    }
+
+    for (const p of debtPayments) {
+      const ds = new Date(p.createdAt).toDateString();
+      const entry = getEntry(ds);
+      entry.paymentRevenue += p.amount;
+    }
+
+    return map;
+  }, [transactions, debtPayments]);
 
   const stats = useMemo(() => {
     const today = new Date().toDateString();
     const yesterday = new Date(Date.now() - 86400000).toDateString();
 
-    const todayTx = transactions.filter(
-      (t) => new Date(t.createdAt).toDateString() === today,
-    );
-    const yesterdayTx = transactions.filter(
-      (t) => new Date(t.createdAt).toDateString() === yesterday,
-    );
+    const todayData = dateAggregates.get(today) || { cashRevenue: 0, paymentRevenue: 0, txCount: 0 };
+    const yesterdayData = dateAggregates.get(yesterday) || { cashRevenue: 0, paymentRevenue: 0, txCount: 0 };
 
-    const todayRevenue = calculateDayRevenue(today);
-    const yesterdayRevenue = calculateDayRevenue(yesterday);
+    const todayRevenue = todayData.cashRevenue + todayData.paymentRevenue;
+    const yesterdayRevenue = yesterdayData.cashRevenue + yesterdayData.paymentRevenue;
+    const todayTxCount = todayData.txCount;
+    const yesterdayTxCount = yesterdayData.txCount;
 
     const revenueChange =
       yesterdayRevenue > 0
@@ -98,17 +110,18 @@ export function DashboardPage() {
           : 0;
 
     const txChange =
-      yesterdayTx.length > 0
-        ? ((todayTx.length - yesterdayTx.length) / yesterdayTx.length) * 100
-        : todayTx.length > 0
+      yesterdayTxCount > 0
+        ? ((todayTxCount - yesterdayTxCount) / yesterdayTxCount) * 100
+        : todayTxCount > 0
           ? 100
           : 0;
 
+    const productMap = new Map(products.map((p) => [p.id, p]));
     const lowStockItems: { id: string; name: string; stock: number }[] = [];
     const outOfStockItems: { id: string; name: string; stock: number }[] = [];
 
     variants.forEach((v) => {
-      const prod = products.find((p) => p.id === v.productId);
+      const prod = productMap.get(v.productId);
       if (!prod) return;
 
       const itemName = `${prod.name} (${v.name})`;
@@ -121,7 +134,7 @@ export function DashboardPage() {
 
     return {
       todayRevenue,
-      todayTxCount: todayTx.length,
+      todayTxCount,
       totalProducts: products.length,
       lowStockCount: lowStockItems.length,
       outOfStockCount: outOfStockItems.length,
@@ -130,7 +143,7 @@ export function DashboardPage() {
       lowStockItems,
       outOfStockItems,
     };
-  }, [products, variants, transactions, debtPayments]);
+  }, [products, variants, dateAggregates]);
 
   const topProducts = useMemo(() => {
     const productSales: Record<
@@ -158,28 +171,25 @@ export function DashboardPage() {
   }, [transactions]);
 
   const chartData = useMemo(() => {
-    const last7Days: { date: string; revenue: number; transactions: number }[] =
-      [];
+    const last7Days: { date: string; revenue: number; transactions: number }[] = [];
 
     for (let i = 6; i >= 0; i--) {
       const date = new Date(Date.now() - i * 86400000);
       const dateStr = date.toDateString();
-      const dayTx = transactions.filter(
-        (t) => new Date(t.createdAt).toDateString() === dateStr,
-      );
+      const entry = dateAggregates.get(dateStr) || { cashRevenue: 0, paymentRevenue: 0, txCount: 0 };
 
       last7Days.push({
         date: date.toLocaleDateString("id-ID", {
           weekday: "short",
           day: "numeric",
         }),
-        revenue: calculateDayRevenue(dateStr),
-        transactions: dayTx.length,
+        revenue: entry.cashRevenue + entry.paymentRevenue,
+        transactions: entry.txCount,
       });
     }
 
     return last7Days;
-  }, [transactions, debtPayments]);
+  }, [dateAggregates]);
 
   if (loading) {
     return (

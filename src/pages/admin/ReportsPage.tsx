@@ -134,10 +134,6 @@ export function ReportsPage() {
       debtProfitMap.set(tx.customerId, existing);
     });
 
-    debts.forEach((debt) => {
-      if (debtProfitMap.has(debt.customerId)) return;
-    });
-
     return (payment: DebtPayment): number => {
       const customerId =
         payment.customerId ||
@@ -206,16 +202,27 @@ export function ReportsPage() {
       };
 
       if (targetPeriod === "daily") {
+        const txByDate = new Map<string, Transaction[]>();
+        for (const t of transactions) {
+          const ds = new Date(t.createdAt).toDateString();
+          const list = txByDate.get(ds) || [];
+          list.push(t);
+          txByDate.set(ds, list);
+        }
+        const payByDate = new Map<string, DebtPayment[]>();
+        for (const p of debtPayments) {
+          const ds = new Date(p.createdAt).toDateString();
+          const list = payByDate.get(ds) || [];
+          list.push(p);
+          payByDate.set(ds, list);
+        }
+
         const last30Days = [];
         for (let i = 29; i >= 0; i--) {
           const date = new Date(Date.now() - i * 86400000);
           const dateStr = date.toDateString();
-          const dayTx = transactions.filter(
-            (t) => new Date(t.createdAt).toDateString() === dateStr,
-          );
-          const dayPayments = debtPayments.filter(
-            (p) => new Date(p.createdAt).toDateString() === dateStr,
-          );
+          const dayTx = txByDate.get(dateStr) || [];
+          const dayPayments = payByDate.get(dateStr) || [];
           const data = processTransactions(dayTx, dayPayments);
 
           last30Days.push({

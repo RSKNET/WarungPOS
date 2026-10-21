@@ -21,6 +21,7 @@ import { PriceInput } from "@/components/ui/price-input";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchInput } from "@/hooks/use-search-input";
 import { formatCurrency } from "@/lib/format";
+import { groupByEntity } from "@/lib/utils";
 import {
   getEmployees,
   getEmployeeDebts,
@@ -62,33 +63,17 @@ export function DebtsPage() {
   }, [debts, searchQuery, filterEmployee]);
 
   const debtsByEmployee = useMemo(() => {
-    const grouped: Record<
-      string,
-      {
-        employeeName: string;
-        debts: EmployeeDebt[];
-        total: number;
-      }
-    > = {};
-
-    filteredDebts.forEach((debt) => {
-      if (!grouped[debt.employeeId]) {
-        grouped[debt.employeeId] = {
-          employeeName: debt.employeeName,
-          debts: [],
-          total: 0,
-        };
-      }
-      grouped[debt.employeeId].debts.push(debt);
-      grouped[debt.employeeId].total += debt.amount;
-    });
-
-    return Object.entries(grouped)
-      .sort(([, a], [, b]) => a.employeeName.localeCompare(b.employeeName))
-      .map(([employeeId, data]) => ({
-        employeeId,
-        ...data,
-      }));
+    return groupByEntity(
+      filteredDebts,
+      (d) => d.employeeId,
+      (d) => d.employeeName,
+      (d) => d.amount,
+    ).map((g) => ({
+      employeeId: g.id,
+      employeeName: g.name,
+      debts: g.items,
+      total: g.total,
+    }));
   }, [filteredDebts]);
 
   const refreshDebts = () => {

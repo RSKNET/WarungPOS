@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Search, Receipt as ReceiptIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSearchInput } from "@/hooks/use-search-input";
+import { ResponsiveActionBar } from "@/components/ResponsiveActionBar";
 
 export function HistoryPage() {
   const [transactions] = useState<Transaction[]>(() => getTransactions());
@@ -25,8 +26,8 @@ export function HistoryPage() {
     isSearchDisabled,
   } = useSearchInput([receiptOpen]);
 
-  const todayTransactions = getTodayTransactions();
-  const todayRevenue = getTodayRevenue();
+  const todayTransactions = useMemo(() => getTodayTransactions(), [transactions]);
+  const todayRevenue = useMemo(() => getTodayRevenue(), [transactions]);
 
   const filteredTransactions = useMemo(() => {
     if (!search) return transactions;
@@ -74,21 +75,17 @@ export function HistoryPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Cari ID transaksi, nama produk..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-10 text-sm"
-            disabled={isSearchDisabled}
-          />
-        </div>
-        <span className="text-sm font-medium text-muted-foreground shrink-0">
-          {filteredTransactions.length} transaksi
-        </span>
-      </div>
+      <ResponsiveActionBar
+        searchQuery={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Cari ID transaksi, nama produk..."
+        isSearchDisabled={isSearchDisabled}
+        rightElement={
+          <span className="text-sm font-medium text-muted-foreground shrink-0">
+            {filteredTransactions.length} transaksi
+          </span>
+        }
+      />
 
       {filteredTransactions.length === 0 ? (
         <div className="py-16 text-center text-sm text-muted-foreground border-y border-border/40">

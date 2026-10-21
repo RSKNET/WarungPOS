@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchInput } from "@/hooks/use-search-input";
-import { toTitleCase, formatPhoneNumber } from "@/lib/text";
+import { toTitleCase, formatPhoneNumber, getInitials } from "@/lib/text";
 import { formatCurrency } from "@/lib/format";
 import {
   getEmployees,
@@ -27,14 +27,6 @@ import { Employee } from "@/types/employee";
 import { sortAlpha } from "@/lib/sorting";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return name.slice(0, 2).toUpperCase();
-}
 
 export function ListPage() {
   const { toast } = useToast();

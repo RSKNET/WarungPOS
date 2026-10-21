@@ -18,3 +18,15 @@ export function formatDate(date: string | Date): string {
   }).format(new Date(date));
 }
 
+export function getEffectivePrice(
+  variant: { retailPrice: number; wholesalePrice: number; wholesaleMinQty: number },
+  quantity: number
+): { price: number; isWholesale: boolean } {
+  const isWholesale = quantity >= variant.wholesaleMinQty && variant.wholesalePrice > 0;
+  return {
+    price: isWholesale ? variant.wholesalePrice : variant.retailPrice,
+    isWholesale,
+  };
+}
+
+

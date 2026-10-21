@@ -1,5 +1,5 @@
 import { CartItem } from "@/types/pos";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, getEffectivePrice } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Minus, Plus, Trash2, ShoppingBag, CreditCard } from "lucide-react";
@@ -47,9 +47,7 @@ export function Cart({
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">
                   {item.variant.name} ·{" "}
                   {formatCurrency(
-                    item.priceType === "wholesale"
-                      ? item.variant.wholesalePrice
-                      : item.variant.retailPrice,
+                    getEffectivePrice(item.variant, item.quantity).price,
                   )}
                   {item.priceType === "wholesale" && (
                     <span className="ml-1 text-primary font-medium">(Grosir)</span>

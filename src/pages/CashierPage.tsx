@@ -15,6 +15,7 @@ import { createEmployeeDebt } from "@/database/employees";
 import { addOutgoing } from "@/database/partners";
 import { Partner } from "@/types/partner";
 import { format } from "date-fns";
+import { getEffectivePrice } from "@/lib/format";
 import { ProductCard } from "@/components/ProductCard";
 import { Cart } from "@/components/Cart";
 import { CheckoutDialog } from "@/components/CheckoutDialog";
@@ -75,9 +76,15 @@ export function CashierPage() {
         waitForProducts(),
         waitForVariants(),
       ]);
+      const variantMap = new Map<string, ProductVariant[]>();
+      for (const variant of variants) {
+        const list = variantMap.get(variant.productId) || [];
+        list.push(variant);
+        variantMap.set(variant.productId, list);
+      }
       const items: FlatItem[] = [];
       for (const product of products) {
-        const pvs = variants.filter((v) => v.productId === product.id);
+        const pvs = variantMap.get(product.id) || [];
         for (const variant of pvs) {
           items.push({ product, variant });
         }
@@ -134,11 +141,7 @@ export function CashierPage() {
         return prev.map((item) => {
           if (item.variant.id === variant.id) {
             const newQty = item.quantity + 1;
-            const isWholesale =
-              newQty >= variant.wholesaleMinQty && variant.wholesalePrice > 0;
-            const price = isWholesale
-              ? variant.wholesalePrice
-              : variant.retailPrice;
+            const { price, isWholesale } = getEffectivePrice(variant, newQty);
             return {
               ...item,
               quantity: newQty,
@@ -181,12 +184,7 @@ export function CashierPage() {
     setCart((prev) =>
       prev.map((item) => {
         if (item.variant.id === variantId) {
-          const isWholesale =
-            quantity >= item.variant.wholesaleMinQty &&
-            item.variant.wholesalePrice > 0;
-          const price = isWholesale
-            ? item.variant.wholesalePrice
-            : item.variant.retailPrice;
+          const { price, isWholesale } = getEffectivePrice(item.variant, quantity);
           return {
             ...item,
             quantity,

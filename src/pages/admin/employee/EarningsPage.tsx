@@ -22,6 +22,7 @@ import { PriceInput } from "@/components/ui/price-input";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchInput } from "@/hooks/use-search-input";
 import { formatCurrency } from "@/lib/format";
+import { groupByEntity } from "@/lib/utils";
 import {
   getEmployees,
   getEarnings,
@@ -68,33 +69,17 @@ export function EarningsPage() {
   }, [earnings, searchQuery, filterEmployee, filterType]);
 
   const earningsByEmployee = useMemo(() => {
-    const grouped: Record<
-      string,
-      {
-        employeeName: string;
-        earnings: EmployeeEarning[];
-        total: number;
-      }
-    > = {};
-
-    filteredEarnings.forEach((earning) => {
-      if (!grouped[earning.employeeId]) {
-        grouped[earning.employeeId] = {
-          employeeName: earning.employeeName,
-          earnings: [],
-          total: 0,
-        };
-      }
-      grouped[earning.employeeId].earnings.push(earning);
-      grouped[earning.employeeId].total += earning.amount;
-    });
-
-    return Object.entries(grouped)
-      .sort(([, a], [, b]) => a.employeeName.localeCompare(b.employeeName))
-      .map(([employeeId, data]) => ({
-        employeeId,
-        ...data,
-      }));
+    return groupByEntity(
+      filteredEarnings,
+      (e) => e.employeeId,
+      (e) => e.employeeName,
+      (e) => e.amount,
+    ).map((g) => ({
+      employeeId: g.id,
+      employeeName: g.name,
+      earnings: g.items,
+      total: g.total,
+    }));
   }, [filteredEarnings]);
 
   const refreshEarnings = () => {

@@ -17,6 +17,9 @@ import {
   XCircle,
   ArrowRightLeft,
   MoreVertical,
+  Printer,
+  Download,
+  Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sortShoppingItems } from "@/lib/sorting";
@@ -39,6 +42,9 @@ export interface ShoppingCategorySectionProps {
   onMoveSingleItem: (item: ShoppingItem) => void;
   onConfirmDeleteItem: (itemId: string) => void;
   onViewPhoto: (photoUrl: string) => void;
+  onPrintCategory?: (category: ShoppingCategory) => void;
+  onSaveImageCategory?: (category: ShoppingCategory) => void;
+  onShareImageCategory?: (category: ShoppingCategory) => void;
 }
 
 export function ShoppingCategorySection({
@@ -59,6 +65,9 @@ export function ShoppingCategorySection({
   onMoveSingleItem,
   onConfirmDeleteItem,
   onViewPhoto,
+  onPrintCategory,
+  onSaveImageCategory,
+  onShareImageCategory,
 }: ShoppingCategorySectionProps) {
   const filteredItems = searchQuery
     ? categoryItems.filter(
@@ -72,6 +81,7 @@ export function ShoppingCategorySection({
   const selectedInCategory = categoryItems.filter((i) => selectedItems.has(i.id));
   const allSelectedPurchased =
     selectedInCategory.length > 0 && selectedInCategory.every((i) => i.isPurchased);
+  const purchasedCount = categoryItems.filter((i) => i.isPurchased).length;
 
   return (
     <div className="border-b border-border/40 pb-4">
@@ -88,7 +98,7 @@ export function ShoppingCategorySection({
           />
           <div className="flex items-center gap-2">
             <span className="font-bold text-base text-foreground">{category.name}</span>
-            <Badge variant="secondary" className="text-xs px-2 py-0.5">
+            <Badge variant="outline" className="text-xs font-normal px-2.5 py-0.5">
               {categoryItems.length} item
             </Badge>
           </div>
@@ -121,24 +131,52 @@ export function ShoppingCategorySection({
               </Button>
             </>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onOpenBulkAdd(category.id)}
-            title="Tambah item"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-destructive hover:text-destructive"
-            onClick={() => onConfirmDeleteCategory(category.id)}
-            title="Hapus kategori"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                title="Menu kategori"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => onOpenBulkAdd(category.id)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Tambah Item
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={categoryItems.length === 0}
+                onClick={() => onPrintCategory?.(category)}
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Cetak Kategori
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={categoryItems.length === 0}
+                onClick={() => onSaveImageCategory?.(category)}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download Gambar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={categoryItems.length === 0}
+                onClick={() => onShareImageCategory?.(category)}
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                Bagikan Kategori
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onConfirmDeleteCategory(category.id)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Hapus Kategori
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

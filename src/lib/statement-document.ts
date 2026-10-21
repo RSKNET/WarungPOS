@@ -2,6 +2,7 @@ import { toCanvas } from "html-to-image";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { printDocument, saveCanvasAsImage, shareCanvasAsImage } from "@/lib/native-bridge";
+import { ShoppingItem, ShoppingCategory } from "@/types/shopping-list";
 
 export interface StatementStoreInfo {
   storeName: string;
@@ -626,3 +627,392 @@ export async function shareMultipleStatementImages(
   }
   return true;
 }
+
+export function generateShoppingListHtml(
+  items: ShoppingItem[],
+  categories: ShoppingCategory[],
+  selectedCategoryIds?: string[],
+): string {
+  const store = getStoreReceiptInfo();
+  const now = format(new Date(), "EEEE, dd MMMM yyyy", { locale: localeId });
+
+  const targetCategories = categories.filter((c) => {
+    if (selectedCategoryIds && selectedCategoryIds.length > 0) {
+      return selectedCategoryIds.includes(c.id);
+    }
+    return items.some((i) => i.categoryId === c.id);
+  });
+
+  const categoriesHtml = (targetCategories.length > 0 ? targetCategories : categories)
+    .map((category) => {
+      const categoryItems = items.filter((i) => i.categoryId === category.id);
+      if (categoryItems.length === 0) return "";
+
+      const rowsHtml = categoryItems
+        .map(
+          (item, i) => `
+        <tr>
+          <td class="col-check">
+            <div class="box ${item.isPurchased ? "checked" : ""}">
+              ${item.isPurchased ? "✓" : ""}
+            </div>
+          </td>
+          <td class="col-no">${i + 1}</td>
+          <td class="col-product ${item.isPurchased ? "purchased" : ""}">${item.productName}</td>
+          <td class="col-brand">${item.brand || "—"}</td>
+          <td class="col-qty">${item.quantity} ${item.unit}</td>
+        </tr>
+      `,
+        )
+        .join("");
+
+      return `
+        <div class="category-page">
+          <div class="header">
+            <div class="header-left">
+              <h1>DAFTAR BELANJA</h1>
+              <div class="category-name">${category.name}</div>
+            </div>
+            <div class="header-right">
+              <div class="date">${now}</div>
+              <div class="summary">${categoryItems.length} item</div>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th class="col-check"></th>
+                <th class="col-no">No</th>
+                <th>Produk</th>
+                <th style="width: 25%;">Merk</th>
+                <th style="width: 100px; text-align: right;">Jumlah</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <div class="footer">
+            <span>${store.storeName}</span>
+            <span>Kategori: ${category.name} • ${categoryItems.length} item</span>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  return `
+    <!DOCTYPE html>
+    <html lang="id">
+    <head>
+      <meta charset="utf-8">
+      <title>Daftar Belanja - ${now}</title>
+      <style>
+        @page {
+          size: A4 portrait;
+          margin: 12mm 15mm;
+        }
+        * {
+          box-sizing: border-box;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          color: #0f172a;
+          background: #ffffff;
+          margin: 0;
+          padding: 0;
+          font-size: 10pt;
+          line-height: 1.4;
+        }
+        .container {
+          width: 100%;
+          max-width: 740px;
+          margin: 0 auto;
+          background: #ffffff;
+          padding: 24px;
+        }
+        .category-page {
+          page-break-after: always;
+          margin-bottom: 28px;
+        }
+        .category-page:last-child {
+          page-break-after: avoid;
+          margin-bottom: 0;
+        }
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+          padding-bottom: 12px;
+          border-bottom: 2px solid #0f172a;
+          margin-bottom: 16px;
+        }
+        .header-left h1 {
+          font-size: 18pt;
+          font-weight: 800;
+          letter-spacing: -0.3px;
+          margin: 0 0 2px 0;
+          color: #0f172a;
+          text-transform: uppercase;
+        }
+        .header-left .category-name {
+          font-size: 12pt;
+          font-weight: 700;
+          color: #475569;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .header-right {
+          text-align: right;
+        }
+        .header-right .date {
+          font-size: 9.5pt;
+          font-weight: 600;
+          color: #1e293b;
+        }
+        .header-right .summary {
+          font-size: 8.5pt;
+          color: #64748b;
+          margin-top: 2px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        th {
+          font-size: 8pt;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: #475569;
+          text-align: left;
+          padding: 8px 6px;
+          border-bottom: 1.5px solid #cbd5e1;
+        }
+        td {
+          padding: 8px 6px;
+          border-bottom: 1px solid #f1f5f9;
+          font-size: 9.5pt;
+          vertical-align: middle;
+        }
+        tr:nth-child(even) td {
+          background-color: #f8fafc;
+        }
+        .col-check {
+          width: 28px;
+          text-align: center;
+        }
+        .col-no {
+          width: 32px;
+          color: #64748b;
+          font-size: 8.5pt;
+        }
+        .col-product {
+          font-weight: 600;
+          color: #0f172a;
+        }
+        .col-product.purchased {
+          text-decoration: line-through;
+          color: #94a3b8;
+        }
+        .col-brand {
+          color: #475569;
+        }
+        .col-qty {
+          text-align: right;
+          font-weight: 700;
+          color: #0f172a;
+          font-variant-numeric: tabular-nums;
+        }
+        .box {
+          width: 14px;
+          height: 14px;
+          border: 1.5px solid #64748b;
+          border-radius: 2px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 9pt;
+          line-height: 1;
+        }
+        .box.checked {
+          background-color: #0f172a;
+          border-color: #0f172a;
+          color: #ffffff;
+        }
+        .footer {
+          margin-top: 24px;
+          padding-top: 8px;
+          border-top: 1px dashed #cbd5e1;
+          display: flex;
+          justify-content: space-between;
+          font-size: 8pt;
+          color: #94a3b8;
+        }
+        @media print {
+          body {
+            font-size: 9pt;
+          }
+          .container {
+            padding: 0;
+            max-width: none;
+          }
+          .category-page {
+            page-break-after: always !important;
+            margin-bottom: 0;
+          }
+          .category-page:last-child {
+            page-break-after: avoid !important;
+          }
+          tr:nth-child(even) td {
+            background-color: #f8fafc !important;
+          }
+          .box.checked {
+            background-color: #0f172a !important;
+            color: #ffffff !important;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        ${categoriesHtml}
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+export function exportShoppingListPdf(
+  items: ShoppingItem[],
+  categories: ShoppingCategory[],
+  selectedCategoryIds?: string[],
+): void {
+  const html = generateShoppingListHtml(items, categories, selectedCategoryIds);
+  const now = format(new Date(), "yyyyMMdd-HHmm");
+  printDocument(html, `Daftar-Belanja-${now}`);
+}
+
+export async function saveShoppingListImage(
+  items: ShoppingItem[],
+  categories: ShoppingCategory[],
+  selectedCategoryIds?: string[],
+): Promise<boolean> {
+  const targetCategories = categories.filter((c) => {
+    if (selectedCategoryIds && selectedCategoryIds.length > 0) {
+      return selectedCategoryIds.includes(c.id);
+    }
+    return items.some((i) => i.categoryId === c.id);
+  });
+
+  if (targetCategories.length === 0) return false;
+
+  const nowStr = format(new Date(), "yyyyMMdd-HHmmss");
+  for (let i = 0; i < targetCategories.length; i++) {
+    const cat = targetCategories[i];
+    const catItems = items.filter((item) => item.categoryId === cat.id);
+    if (catItems.length === 0) continue;
+
+    const html = generateShoppingListHtml(catItems, [cat]);
+    const canvas = await renderStatementCanvas(html);
+    const catSlug = cat.name.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/-+/g, "-");
+    const fileName = `daftar-belanja-${catSlug}-${nowStr}.png`;
+
+    saveCanvasAsImage(canvas, {
+      filename: fileName,
+      folder: "Image",
+      toastTitle: "Daftar Belanja Disimpan",
+      toastDescription:
+        typeof window !== "undefined" && window.AndroidBridge
+          ? `Kategori ${cat.name} disimpan di Download/WarungPOS/Image/`
+          : `Kategori ${cat.name} disimpan sebagai gambar`,
+    });
+
+    if (i < targetCategories.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  }
+
+  return true;
+}
+
+export async function shareShoppingListImage(
+  items: ShoppingItem[],
+  categories: ShoppingCategory[],
+  selectedCategoryIds?: string[],
+): Promise<boolean> {
+  const targetCategories = categories.filter((c) => {
+    if (selectedCategoryIds && selectedCategoryIds.length > 0) {
+      return selectedCategoryIds.includes(c.id);
+    }
+    return items.some((i) => i.categoryId === c.id);
+  });
+
+  if (targetCategories.length === 0) return false;
+
+  const nowStr = format(new Date(), "yyyyMMdd-HHmmss");
+  const dateFormatted = format(new Date(), "dd MMMM yyyy", { locale: localeId });
+
+  if (targetCategories.length === 1) {
+    const cat = targetCategories[0];
+    const catItems = items.filter((item) => item.categoryId === cat.id);
+    const html = generateShoppingListHtml(catItems, [cat]);
+    const canvas = await renderStatementCanvas(html);
+    const catSlug = cat.name.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/-+/g, "-");
+    const fileName = `daftar-belanja-${catSlug}-${nowStr}.png`;
+    return await shareCanvasAsImage(canvas, {
+      filename: fileName,
+      title: `Daftar Belanja - ${cat.name} (${dateFormatted})`,
+      errorTitle: "Gagal Membagikan",
+      errorDescription: "Terjadi kesalahan saat membagikan daftar belanja",
+    });
+  }
+
+  const files: File[] = [];
+  for (const cat of targetCategories) {
+    const catItems = items.filter((item) => item.categoryId === cat.id);
+    if (catItems.length === 0) continue;
+    const html = generateShoppingListHtml(catItems, [cat]);
+    const canvas = await renderStatementCanvas(html);
+    const dataUrl = canvas.toDataURL("image/png");
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const catSlug = cat.name.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/-+/g, "-");
+    const fileName = `daftar-belanja-${catSlug}-${nowStr}.png`;
+    files.push(new File([blob], fileName, { type: "image/png" }));
+  }
+
+  if (typeof navigator !== "undefined" && navigator.share && navigator.canShare && navigator.canShare({ files })) {
+    try {
+      await navigator.share({
+        files,
+        title: `Daftar Belanja (${targetCategories.length} Kategori) - ${dateFormatted}`,
+      });
+      return true;
+    } catch {
+    }
+  }
+
+  for (let i = 0; i < targetCategories.length; i++) {
+    const cat = targetCategories[i];
+    const catItems = items.filter((item) => item.categoryId === cat.id);
+    if (catItems.length === 0) continue;
+    const html = generateShoppingListHtml(catItems, [cat]);
+    const canvas = await renderStatementCanvas(html);
+    const catSlug = cat.name.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/-+/g, "-");
+    const fileName = `daftar-belanja-${catSlug}-${nowStr}.png`;
+    saveCanvasAsImage(canvas, {
+      filename: fileName,
+      folder: "Image",
+    });
+    if (i < targetCategories.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  }
+
+  return true;
+}
+
+

@@ -2,36 +2,93 @@ import { Toaster } from "@/components/ui/toaster";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense, ReactNode } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
+import { Loader2 } from "lucide-react";
 import { CashierPage } from "./pages/CashierPage";
 import { Layout } from "./components/Layout";
-import {
-  DashboardPage,
-  ProductsPage,
-  HistoryPage,
-  ReportsPage,
-  SettingsPage,
-  PricingPage,
-  CalculatorPage,
-  DebtsPage,
-  EmployeesPage,
-  EmployeeEarningsPage,
-  EmployeeDebtsPage,
-  EmployeeRecordsPage,
-  ShoppingListPage,
-  ShoppingArchivePage,
-  MasterDataPage,
-  PartnersPage,
-  PartnerIncomingPage,
-  PartnerOutgoingPage,
-  PartnerLedgerPage,
-} from "./pages/admin";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import { PWAUpdateNotification } from "./components/PWAUpdateNotification";
 import NotFound from "./pages/NotFound";
 import { migrateFromLocalStorage } from "./database";
+
+const DashboardPage = lazy(() =>
+  import("./pages/admin/DashboardPage").then((m) => ({ default: m.DashboardPage })),
+);
+const ProductsPage = lazy(() =>
+  import("./pages/admin/ProductsPage").then((m) => ({ default: m.ProductsPage })),
+);
+const HistoryPage = lazy(() =>
+  import("./pages/admin/HistoryPage").then((m) => ({ default: m.HistoryPage })),
+);
+const ReportsPage = lazy(() =>
+  import("./pages/admin/ReportsPage").then((m) => ({ default: m.ReportsPage })),
+);
+const SettingsPage = lazy(() =>
+  import("./pages/admin/SettingsPage").then((m) => ({ default: m.SettingsPage })),
+);
+const PricingPage = lazy(() =>
+  import("./pages/admin/pricing").then((m) => ({ default: m.PricingPage })),
+);
+const CalculatorPage = lazy(() =>
+  import("./pages/admin/CalculatorPage").then((m) => ({ default: m.CalculatorPage })),
+);
+const DebtsPage = lazy(() =>
+  import("./pages/admin/DebtsPage").then((m) => ({ default: m.DebtsPage })),
+);
+const MasterDataPage = lazy(() =>
+  import("./pages/admin/MasterDataPage").then((m) => ({ default: m.MasterDataPage })),
+);
+
+const EmployeesPage = lazy(() =>
+  import("./pages/admin/employee").then((m) => ({ default: m.EmployeesPage })),
+);
+const EmployeeEarningsPage = lazy(() =>
+  import("./pages/admin/employee").then((m) => ({ default: m.EmployeeEarningsPage })),
+);
+const EmployeeDebtsPage = lazy(() =>
+  import("./pages/admin/employee").then((m) => ({ default: m.EmployeeDebtsPage })),
+);
+const EmployeeRecordsPage = lazy(() =>
+  import("./pages/admin/employee").then((m) => ({ default: m.EmployeeRecordsPage })),
+);
+
+const ShoppingListPage = lazy(() =>
+  import("./pages/admin/shopping").then((m) => ({ default: m.ShoppingListPage })),
+);
+const ShoppingArchivePage = lazy(() =>
+  import("./pages/admin/shopping").then((m) => ({ default: m.ShoppingArchivePage })),
+);
+
+const PartnersPage = lazy(() =>
+  import("./pages/admin/partners").then((m) => ({ default: m.PartnersPage })),
+);
+const PartnerIncomingPage = lazy(() =>
+  import("./pages/admin/partners").then((m) => ({ default: m.PartnerIncomingPage })),
+);
+const PartnerOutgoingPage = lazy(() =>
+  import("./pages/admin/partners").then((m) => ({ default: m.PartnerOutgoingPage })),
+);
+const PartnerLedgerPage = lazy(() =>
+  import("./pages/admin/partners").then((m) => ({ default: m.PartnerLedgerPage })),
+);
+
+function AdminRoute({ children }: { children: ReactNode }) {
+  return (
+    <AdminLayout>
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </div>
+        }
+      >
+        {children}
+      </Suspense>
+    </AdminLayout>
+  );
+}
 const App = () => {
   useEffect(() => {
     migrateFromLocalStorage();
@@ -68,153 +125,153 @@ const App = () => {
               <Route
                 path="/admin"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <DashboardPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/products"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <ProductsPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/pricing"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <PricingPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/calculator"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <CalculatorPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/debts"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <DebtsPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/history"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <HistoryPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/reports"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <ReportsPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/settings"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <SettingsPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/employees"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <EmployeesPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/employees/earnings"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <EmployeeEarningsPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/employees/debts"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <EmployeeDebtsPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/employees/records"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <EmployeeRecordsPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/partners"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <PartnersPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/partners/incoming"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <PartnerIncomingPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/partners/outgoing"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <PartnerOutgoingPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/partners/ledger"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <PartnerLedgerPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/shopping-list"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <ShoppingListPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/shopping-archive"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <ShoppingArchivePage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route
                 path="/admin/master-data"
                 element={
-                  <AdminLayout>
+                  <AdminRoute>
                     <MasterDataPage />
-                  </AdminLayout>
+                  </AdminRoute>
                 }
               />
               <Route path="*" element={<NotFound />} />

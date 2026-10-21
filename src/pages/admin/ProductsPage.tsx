@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { Product, ProductVariant, ProductFormData } from "@/types/pos";
 import {
   addProduct,
@@ -116,19 +116,32 @@ export function ProductsPage() {
     };
   }, []);
 
-  const filteredProducts = products.filter((p) => {
-    const productMatch =
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.category.toLowerCase().includes(search.toLowerCase());
-    const variantMatch = variants
-      .filter((v) => v.productId === p.id)
-      .some(
+  const variantMap = useMemo(() => {
+    const map = new Map<string, ProductVariant[]>();
+    for (const v of variants) {
+      const list = map.get(v.productId) || [];
+      list.push(v);
+      map.set(v.productId, list);
+    }
+    return map;
+  }, [variants]);
+
+  const filteredProducts = useMemo(() => {
+    if (!search) return products;
+    const searchLower = search.toLowerCase();
+    return products.filter((p) => {
+      const productMatch =
+        p.name.toLowerCase().includes(searchLower) ||
+        p.category.toLowerCase().includes(searchLower);
+      if (productMatch) return true;
+      const pvs = variantMap.get(p.id) || [];
+      return pvs.some(
         (v) =>
-          v.sku.toLowerCase().includes(search.toLowerCase()) ||
-          v.name.toLowerCase().includes(search.toLowerCase()),
+          v.sku.toLowerCase().includes(searchLower) ||
+          v.name.toLowerCase().includes(searchLower),
       );
-    return productMatch || variantMatch;
-  });
+    });
+  }, [products, variantMap, search]);
 
   const toggleExpand = (id: string) => {
     setExpandedProductIds((prev) => {
