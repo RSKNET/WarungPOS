@@ -3,8 +3,11 @@ import { Debt } from "@/types/debt";
 import { formatCurrency } from "@/lib/format";
 import {
   printStatementDocument,
+  printMultipleStatementDocuments,
   saveStatementImage,
+  saveMultipleStatementImages,
   shareStatementImage,
+  shareMultipleStatementImages,
   getStoreReceiptInfo,
   StatementDocumentOptions,
 } from "@/lib/statement-document";
@@ -489,114 +492,64 @@ export function DebtsPage() {
     return selectedCustomersList.filter((c) => c.totalDebt === 0).length;
   }, [selectedCustomersList]);
 
-  const getBulkDebtStatementOptions = (selectedList: CustomerDebtSummary[]): StatementDocumentOptions => {
-    const store = getStoreReceiptInfo();
-    const totalSelectedDebt = selectedList.reduce((sum, c) => sum + c.totalDebt, 0);
-
-    return {
-      store,
-      meta: {
-        title: "REKAPITULASI DAFTAR HUTANG",
-        date: new Date(),
-      },
-      party: {
-        items: [
-          { label: "Jumlah Pelanggan", value: `${selectedList.length} orang` },
-          { label: "Tanggal Rekap", value: format(new Date(), "dd/MM/yyyy HH:mm", { locale: localeId }) },
-        ],
-        badge: {
-          label: "TOTAL PIUTANG",
-          value: formatCurrency(totalSelectedDebt),
-          color: "#e11d48",
-        },
-      },
-      columns: [
-        { key: "no", header: "No", align: "center", width: "40px" },
-        { key: "name", header: "Nama Pelanggan" },
-        { key: "count", header: "Transaksi", align: "center", width: "100px" },
-        { key: "debt", header: "Total Hutang", align: "right", width: "130px", isMono: true },
-      ],
-      rows: selectedList.map((c, idx) => ({
-        id: c.customerId,
-        cells: {
-          no: { value: idx + 1, style: "color: #6b7280;" },
-          name: { value: c.customerName, style: "font-weight: 600;" },
-          count: `${c.debtCount} transaksi`,
-          debt: {
-            value: formatCurrency(c.totalDebt),
-            style: c.totalDebt > 0 ? "font-weight: 700; color: #e11d48;" : "color: #16a34a;",
-          },
-        },
-      })),
-      summaries: [
-        {
-          label: "Total Piutang Terpilih:",
-          value: formatCurrency(totalSelectedDebt),
-          isHighlight: true,
-        },
-      ],
-      signatures: [
-        {
-          title: "Petugas / Kasir",
-          name: store.storeName,
-        },
-      ],
-      footerNote: "Laporan rekapitulasi daftar hutang pelanggan WarungPOS.",
-    };
-  };
-
   const handleBulkPrint = () => {
-    const targetCustomers =
-      selectedCustomersList.length > 0 ? selectedCustomersList : filteredCustomers;
-    if (targetCustomers.length === 0) return;
-    const options = getBulkDebtStatementOptions(targetCustomers);
-    const title = `Rekap-Hutang-${format(new Date(), "yyyyMMdd-HHmm")}`;
-    printStatementDocument(options, title);
+    if (selectedCustomersList.length === 0) return;
+    if (selectedCustomersList.length === 1) {
+      handlePrintCustomer(selectedCustomersList[0]);
+      return;
+    }
+    const optionsList = selectedCustomersList.map((c) => buildCustomerStatementOptions(c));
+    const title = `Nota-Hutang-Massal-${format(new Date(), "yyyyMMdd-HHmm")}`;
+    printMultipleStatementDocuments(optionsList, title);
   };
 
   const handleBulkSaveImage = async () => {
-    const targetCustomers =
-      selectedCustomersList.length > 0 ? selectedCustomersList : filteredCustomers;
-    if (targetCustomers.length === 0) return;
-    const options = getBulkDebtStatementOptions(targetCustomers);
+    if (selectedCustomersList.length === 0) return;
     try {
-      const fileName = `rekap-hutang-${format(new Date(), "yyyyMMdd-HHmm")}.png`;
-      await saveStatementImage(options, {
-        filename: fileName,
+      const items = selectedCustomersList.map((c) => ({
+        options: buildCustomerStatementOptions(c),
+        filename: `hutang-${c.customerName.replace(/\s+/g, "-")}-${format(new Date(), "yyyyMMdd-HHmmss")}.png`,
+      }));
+      await saveMultipleStatementImages(items, {
         folder: "Image",
-        toastTitle: "Rekap Hutang Disimpan",
+        toastTitle: "Nota Disimpan",
         toastDescription:
           typeof window !== "undefined" && window.AndroidBridge
-            ? "Rekap hutang berhasil disimpan di Download/WarungPOS/Image/"
-            : "Rekap hutang berhasil disimpan sebagai gambar PNG",
+            ? "Nota hutang berhasil disimpan di Download/WarungPOS/Image/"
+            : "Nota hutang berhasil disimpan sebagai gambar PNG",
+      });
+      toast({
+        title: "Nota Disimpan",
+        description: `${selectedCustomersList.length} nota hutang berhasil disimpan sebagai gambar`,
       });
     } catch {
       toast({
         title: "Gagal Menyimpan",
-        description: "Gagal memproses gambar rekap hutang",
+        description: "Gagal memproses gambar rincian hutang",
         variant: "destructive",
       });
     }
   };
 
   const handleBulkShareImage = async () => {
-    const targetCustomers =
-      selectedCustomersList.length > 0 ? selectedCustomersList : filteredCustomers;
-    if (targetCustomers.length === 0) return;
-    const options = getBulkDebtStatementOptions(targetCustomers);
+    if (selectedCustomersList.length === 0) return;
     try {
-      const fileName = `rekap-hutang-${format(new Date(), "yyyyMMdd-HHmm")}.png`;
-      const title = `Rekapitulasi Hutang Pelanggan (${options.store.storeName})`;
-      await shareStatementImage(options, {
-        filename: fileName,
-        title,
-        errorTitle: "Gagal Membagikan",
-        errorDescription: "Terjadi kesalahan saat membagikan rekap hutang",
+      const items = selectedCustomersList.map((c) => ({
+        options: buildCustomerStatementOptions(c),
+        filename: `hutang-${c.customerName.replace(/\s+/g, "-")}-${format(new Date(), "yyyyMMdd-HHmmss")}.png`,
+      }));
+      await shareMultipleStatementImages(
+        items,
+        `Nota Catatan Hutang (${selectedCustomersList.length} Pelanggan)`,
+      );
+      toast({
+        title: "Berhasil",
+        description: `${selectedCustomersList.length} nota hutang siap dibagikan`,
       });
     } catch {
       toast({
         title: "Gagal Membagikan",
-        description: "Gagal membagikan rekap hutang",
+        description: "Terjadi kesalahan saat membagikan nota hutang",
         variant: "destructive",
       });
     }
@@ -671,7 +624,7 @@ export function DebtsPage() {
                   variant="outline"
                   size="icon"
                   className="h-10 w-10 relative"
-                  disabled={filteredCustomers.length === 0}
+                  disabled={selectedCustomerIds.size === 0}
                 >
                   <MoreVertical className="w-4 h-4" />
                   {selectedCustomerIds.size > 0 && (
@@ -682,17 +635,17 @@ export function DebtsPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleBulkPrint}>
+                <DropdownMenuItem onClick={handleBulkPrint} disabled={selectedCustomerIds.size === 0}>
                   <Printer className="w-4 h-4 mr-2" />
-                  Cetak Rekap{selectedCustomerIds.size > 0 ? ` (${selectedCustomerIds.size})` : ""}
+                  Cetak Nota{selectedCustomerIds.size > 0 ? ` (${selectedCustomerIds.size})` : ""}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleBulkSaveImage}>
+                <DropdownMenuItem onClick={handleBulkSaveImage} disabled={selectedCustomerIds.size === 0}>
                   <Download className="w-4 h-4 mr-2" />
                   Simpan Gambar{selectedCustomerIds.size > 0 ? ` (${selectedCustomerIds.size})` : ""}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleBulkShareImage}>
+                <DropdownMenuItem onClick={handleBulkShareImage} disabled={selectedCustomerIds.size === 0}>
                   <Share2 className="w-4 h-4 mr-2" />
-                  Bagikan Rekap{selectedCustomerIds.size > 0 ? ` (${selectedCustomerIds.size})` : ""}
+                  Bagikan Nota{selectedCustomerIds.size > 0 ? ` (${selectedCustomerIds.size})` : ""}
                 </DropdownMenuItem>
                 {selectedLunasCount > 0 && (
                   <>
@@ -725,7 +678,7 @@ export function DebtsPage() {
               size="sm"
               className="h-10 px-3 text-xs gap-1.5"
               onClick={handleBulkPrint}
-              disabled={filteredCustomers.length === 0}
+              disabled={selectedCustomerIds.size === 0}
             >
               <Printer className="w-4 h-4" />
               <span>Cetak{selectedCustomerIds.size > 0 ? ` (${selectedCustomerIds.size})` : ""}</span>
@@ -735,7 +688,7 @@ export function DebtsPage() {
               size="sm"
               className="h-10 px-3 text-xs gap-1.5"
               onClick={handleBulkSaveImage}
-              disabled={filteredCustomers.length === 0}
+              disabled={selectedCustomerIds.size === 0}
             >
               <Download className="w-4 h-4" />
               <span>Gambar</span>
@@ -745,7 +698,7 @@ export function DebtsPage() {
               size="sm"
               className="h-10 px-3 text-xs gap-1.5"
               onClick={handleBulkShareImage}
-              disabled={filteredCustomers.length === 0}
+              disabled={selectedCustomerIds.size === 0}
             >
               <Share2 className="w-4 h-4" />
               <span>Bagikan</span>
