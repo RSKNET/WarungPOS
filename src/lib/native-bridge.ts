@@ -31,7 +31,16 @@ declare global {
   }
 }
 
+let isPrintingLock = false;
+
 export function printDocument(htmlContent: string, jobName: string = "Dokumen-WarungPOS"): void {
+  if (isPrintingLock) return;
+  isPrintingLock = true;
+  const releaseLock = () => {
+    isPrintingLock = false;
+  };
+  setTimeout(releaseLock, 1500);
+
   if (typeof window !== "undefined" && window.AndroidBridge?.printHtml) {
     window.AndroidBridge.printHtml(htmlContent, jobName);
     return;
@@ -58,6 +67,7 @@ export function printDocument(htmlContent: string, jobName: string = "Dokumen-Wa
     frameDoc.close();
 
     const cleanup = () => {
+      releaseLock();
       try {
         if (document.body.contains(iframe)) {
           document.body.removeChild(iframe);
@@ -73,12 +83,11 @@ export function printDocument(htmlContent: string, jobName: string = "Dokumen-Wa
         iframe.contentWindow?.print();
       } catch {
         cleanup();
-        window.print();
       }
-      setTimeout(cleanup, 60000);
+      setTimeout(cleanup, 30000);
     }, 250);
   } else {
-    window.print();
+    releaseLock();
   }
 }
 

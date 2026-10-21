@@ -492,8 +492,16 @@ export function DebtsPage() {
     return selectedCustomersList.filter((c) => c.totalDebt === 0).length;
   }, [selectedCustomersList]);
 
+  const isBulkPrintingRef = useRef(false);
+
   const handleBulkPrint = () => {
+    if (isBulkPrintingRef.current) return;
     if (selectedCustomersList.length === 0) return;
+    isBulkPrintingRef.current = true;
+    setTimeout(() => {
+      isBulkPrintingRef.current = false;
+    }, 1500);
+
     if (selectedCustomersList.length === 1) {
       handlePrintCustomer(selectedCustomersList[0]);
       return;
