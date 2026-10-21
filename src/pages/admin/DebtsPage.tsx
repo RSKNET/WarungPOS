@@ -546,15 +546,19 @@ export function DebtsPage() {
   };
 
   const handleBulkPrint = () => {
-    if (selectedCustomersList.length === 0) return;
-    const options = getBulkDebtStatementOptions(selectedCustomersList);
+    const targetCustomers =
+      selectedCustomersList.length > 0 ? selectedCustomersList : filteredCustomers;
+    if (targetCustomers.length === 0) return;
+    const options = getBulkDebtStatementOptions(targetCustomers);
     const title = `Rekap-Hutang-${format(new Date(), "yyyyMMdd-HHmm")}`;
     printStatementDocument(options, title);
   };
 
   const handleBulkSaveImage = async () => {
-    if (selectedCustomersList.length === 0) return;
-    const options = getBulkDebtStatementOptions(selectedCustomersList);
+    const targetCustomers =
+      selectedCustomersList.length > 0 ? selectedCustomersList : filteredCustomers;
+    if (targetCustomers.length === 0) return;
+    const options = getBulkDebtStatementOptions(targetCustomers);
     try {
       const fileName = `rekap-hutang-${format(new Date(), "yyyyMMdd-HHmm")}.png`;
       await saveStatementImage(options, {
@@ -576,8 +580,10 @@ export function DebtsPage() {
   };
 
   const handleBulkShareImage = async () => {
-    if (selectedCustomersList.length === 0) return;
-    const options = getBulkDebtStatementOptions(selectedCustomersList);
+    const targetCustomers =
+      selectedCustomersList.length > 0 ? selectedCustomersList : filteredCustomers;
+    if (targetCustomers.length === 0) return;
+    const options = getBulkDebtStatementOptions(targetCustomers);
     try {
       const fileName = `rekap-hutang-${format(new Date(), "yyyyMMdd-HHmm")}.png`;
       const title = `Rekapitulasi Hutang Pelanggan (${options.store.storeName})`;
@@ -643,114 +649,130 @@ export function DebtsPage() {
     );
   }, [search, customers]);
 
-  const totalAllDebts = useMemo(() => {
-    return customers.reduce((sum, c) => sum + c.totalDebt, 0);
-  }, [customers]);
-
   if (!selectedCustomer) {
     return (
       <div className="space-y-4">
-        {selectedCustomerIds.size > 0 ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-muted/60 border border-border/50 text-xs">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={
-                  filteredCustomers.length > 0 &&
-                  filteredCustomers.every((c) => selectedCustomerIds.has(c.customerId))
-                }
-                onCheckedChange={handleToggleSelectAll}
-              />
-              <span className="font-semibold text-foreground">
-                {selectedCustomerIds.size} dipilih
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 px-2.5 text-xs gap-1.5"
-                onClick={handleBulkPrint}
-                title="Cetak Rekap"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Cetak</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 px-2.5 text-xs gap-1.5"
-                onClick={handleBulkSaveImage}
-                title="Simpan Gambar"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Gambar</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 px-2.5 text-xs gap-1.5"
-                onClick={handleBulkShareImage}
-                title="Bagikan Rekap"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Bagikan</span>
-              </Button>
-              {selectedLunasCount > 0 && (
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Cari pelanggan..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-10 text-sm"
+              disabled={isSearchDisabled}
+            />
+          </div>
+
+          <div className="sm:hidden shrink-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="h-8 px-2.5 text-xs text-destructive hover:bg-destructive/10 border-destructive/30 gap-1.5"
-                  onClick={() => setBulkDeleteConfirmOpen(true)}
-                  title="Hapus Riwayat Lunas"
+                  size="icon"
+                  className="h-10 w-10 relative"
+                  disabled={filteredCustomers.length === 0}
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Hapus ({selectedLunasCount})</span>
+                  <MoreVertical className="w-4 h-4" />
+                  {selectedCustomerIds.size > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                      {selectedCustomerIds.size}
+                    </span>
+                  )}
                 </Button>
-              )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleBulkPrint}>
+                  <Printer className="w-4 h-4 mr-2" />
+                  Cetak Rekap{selectedCustomerIds.size > 0 ? ` (${selectedCustomerIds.size})` : ""}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleBulkSaveImage}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Simpan Gambar{selectedCustomerIds.size > 0 ? ` (${selectedCustomerIds.size})` : ""}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleBulkShareImage}>
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Bagikan Rekap{selectedCustomerIds.size > 0 ? ` (${selectedCustomerIds.size})` : ""}
+                </DropdownMenuItem>
+                {selectedLunasCount > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => setBulkDeleteConfirmOpen(true)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Hapus Riwayat Lunas ({selectedLunasCount})
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {selectedCustomerIds.size > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setSelectedCustomerIds(new Set())}>
+                      <X className="w-4 h-4 mr-2" />
+                      Batal Pilihan ({selectedCustomerIds.size})
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 px-3 text-xs gap-1.5"
+              onClick={handleBulkPrint}
+              disabled={filteredCustomers.length === 0}
+            >
+              <Printer className="w-4 h-4" />
+              <span>Cetak{selectedCustomerIds.size > 0 ? ` (${selectedCustomerIds.size})` : ""}</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 px-3 text-xs gap-1.5"
+              onClick={handleBulkSaveImage}
+              disabled={filteredCustomers.length === 0}
+            >
+              <Download className="w-4 h-4" />
+              <span>Gambar</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 px-3 text-xs gap-1.5"
+              onClick={handleBulkShareImage}
+              disabled={filteredCustomers.length === 0}
+            >
+              <Share2 className="w-4 h-4" />
+              <span>Bagikan</span>
+            </Button>
+            {selectedLunasCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 px-3 text-xs text-destructive hover:bg-destructive/10 border-destructive/30 gap-1.5"
+                onClick={() => setBulkDeleteConfirmOpen(true)}
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Hapus ({selectedLunasCount})</span>
+              </Button>
+            )}
+            {selectedCustomerIds.size > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                className="h-10 px-2.5 text-xs text-muted-foreground hover:text-foreground"
                 onClick={() => setSelectedCustomerIds(new Set())}
               >
                 Batal
               </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder="Cari pelanggan..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 h-10 text-sm"
-                disabled={isSearchDisabled}
-              />
-            </div>
-            {filteredCustomers.length > 0 && (
-              <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-                <label
-                  className="flex items-center gap-2 cursor-pointer hover:text-foreground select-none"
-                  onClick={handleToggleSelectAll}
-                >
-                  <Checkbox
-                    checked={
-                      filteredCustomers.length > 0 &&
-                      filteredCustomers.every((c) => selectedCustomerIds.has(c.customerId))
-                    }
-                    onCheckedChange={handleToggleSelectAll}
-                  />
-                  <span>Pilih Semua ({filteredCustomers.length})</span>
-                </label>
-                <span className="font-medium text-foreground">
-                  Total: {formatCurrency(totalAllDebts)}
-                </span>
-              </div>
             )}
           </div>
-        )}
+        </div>
 
         {filteredCustomers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
