@@ -781,89 +781,112 @@ export function DebtsPage() {
             <p className="text-xs mt-1">Semua pelanggan sudah melunasi hutang</p>
           </div>
         ) : isMobile ? (
-          <div className="divide-y divide-border/30 border-y border-border/40">
-            {filteredCustomers.map((customer) => {
-              const isChecked = selectedCustomerIds.has(customer.customerId);
-              return (
+          <div className="border-y border-border/40">
+            <div className="py-2.5 px-1 flex items-center justify-between gap-2.5 bg-muted/40 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/30">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <div
-                  key={customer.customerId}
-                  className={cn(
-                    "py-3 px-1 flex items-center justify-between gap-2.5 cursor-pointer hover:bg-muted/30 transition-colors",
-                    isChecked && "bg-primary/5"
-                  )}
-                  onClick={() => handleSelectCustomer(customer)}
+                  className="p-1 -m-1 shrink-0"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div
-                      className="p-1 -m-1 shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleCustomerSelect(customer.customerId);
-                      }}
-                    >
-                      <Checkbox
-                        checked={isChecked}
-                        onCheckedChange={() => handleToggleCustomerSelect(customer.customerId)}
-                      />
-                    </div>
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <User className="w-4 h-4 text-primary" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-sm sm:text-base truncate">
-                        {customer.customerName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {customer.debtCount} transaksi
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right flex items-center gap-1.5 shrink-0">
-                    <p className="font-bold text-sm sm:text-base text-destructive tabular-nums">
-                      {formatCurrency(customer.totalDebt)}
-                    </p>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenuItem onClick={() => handlePrintCustomer(customer)}>
-                          <Printer className="w-4 h-4 mr-2" />
-                          Cetak Nota / Dokumen
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleSaveImageCustomer(customer)}>
-                          <Download className="w-4 h-4 mr-2" />
-                          Simpan Gambar (PNG)
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleShareImageCustomer(customer)}>
-                          <Share2 className="w-4 h-4 mr-2" />
-                          Bagikan Nota
-                        </DropdownMenuItem>
-                        {customer.totalDebt === 0 && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => handleDeleteClick(customer.customerId, customer.customerName)}
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Hapus Riwayat
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                  <Checkbox
+                    checked={
+                      filteredCustomers.length > 0 &&
+                      filteredCustomers.every((c) => selectedCustomerIds.has(c.customerId))
+                    }
+                    onCheckedChange={handleToggleSelectAll}
+                  />
                 </div>
-              );
-            })}
+                <span>Nama</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0 text-right">
+                <span className="text-right min-w-[60px]">Total</span>
+                <span className="w-8 text-center">Aksi</span>
+              </div>
+            </div>
+            <div className="divide-y divide-border/30">
+              {filteredCustomers.map((customer) => {
+                const isChecked = selectedCustomerIds.has(customer.customerId);
+                return (
+                  <div
+                    key={customer.customerId}
+                    className={cn(
+                      "py-3 px-1 flex items-center justify-between gap-2.5 cursor-pointer hover:bg-muted/30 transition-colors",
+                      isChecked && "bg-primary/5"
+                    )}
+                    onClick={() => handleSelectCustomer(customer)}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className="p-1 -m-1 shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleCustomerSelect(customer.customerId);
+                        }}
+                      >
+                        <Checkbox
+                          checked={isChecked}
+                          onCheckedChange={() => handleToggleCustomerSelect(customer.customerId)}
+                        />
+                      </div>
+                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <User className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm sm:text-base truncate">
+                          {customer.customerName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {customer.debtCount} transaksi
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right flex items-center gap-1.5 shrink-0">
+                      <p className="font-bold text-sm sm:text-base text-destructive tabular-nums">
+                        {formatCurrency(customer.totalDebt)}
+                      </p>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenuItem onClick={() => handlePrintCustomer(customer)}>
+                            <Printer className="w-4 h-4 mr-2" />
+                            Cetak Nota / Dokumen
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleSaveImageCustomer(customer)}>
+                            <Download className="w-4 h-4 mr-2" />
+                            Simpan Gambar (PNG)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleShareImageCustomer(customer)}>
+                            <Share2 className="w-4 h-4 mr-2" />
+                            Bagikan Nota
+                          </DropdownMenuItem>
+                          {customer.totalDebt === 0 && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => handleDeleteClick(customer.customerId, customer.customerName)}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Hapus Riwayat
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ) : (
           <div className="w-full overflow-x-auto">
