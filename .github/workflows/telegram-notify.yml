@@ -56,7 +56,7 @@ jobs:
           chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
           thread_id: '78'
           file_path: ${{ env.APK_PATH }}
-          title: '${{ github.event.repository.name }} — Release Successful'
+          title: 'RELEASE SUCCESS: ${{ github.event.repository.name }}'
           status: 'success'
           version: ${{ env.RELEASE_TAG }}
           actor: ${{ github.actor }}
