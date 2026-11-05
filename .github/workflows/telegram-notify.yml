@@ -45,7 +45,7 @@ jobs:
             exit 1
           fi
 
-          # Potong hash commit jadi 7 karakter biar rapi seperti di README
+          # Potong hash commit jadi 7 karakter biar rapi
           FULL_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
           SHORT_SHA="${FULL_SHA:0:7}"
 
@@ -54,12 +54,13 @@ jobs:
           echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_ENV
           echo "File APK siap dikirim: $APK_PATH"
 
-      - name: Send Release Report to Telegram
+      - name: Send APK & Report to Telegram
         uses: ./.github/actions/github-actions/Telegram Sender
         with:
           bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
           thread_id: '78'
+          file_path: ${{ env.APK_PATH }}
           title: 'RELEASE SUCCESS: ${{ github.event.repository.name }}'
           status: 'success'
           version: ${{ env.RELEASE_TAG }}
@@ -67,11 +68,3 @@ jobs:
           commit: ${{ env.SHORT_SHA }}
           actor: ${{ github.event.workflow_run.actor.login || github.actor }}
           notes: 'Build artifact terlampir siap digunakan.'
-
-      - name: Send APK File to Telegram
-        uses: ./.github/actions/github-actions/Telegram Sender
-        with:
-          bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
-          thread_id: '78'
-          file_path: ${{ env.APK_PATH }}
