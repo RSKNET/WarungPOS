@@ -59,5 +59,7 @@ jobs:
           title: 'RELEASE SUCCESS: ${{ github.event.repository.name }}'
           status: 'success'
           version: ${{ env.RELEASE_TAG }}
+          branch: ${{ github.ref_name }}
+          commit: ${{ github.sha }}
           actor: ${{ github.actor }}
-          notes: 'APK terlampir siap di-install.'
+          notes: 'Build artifact terlampir siap digunakan.'
