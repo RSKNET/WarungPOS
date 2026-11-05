@@ -56,11 +56,8 @@ jobs:
           chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
           thread_id: '78'
           file_path: ${{ env.APK_PATH }}
-          message: |
-            🚀 <b>WarungPOS APK Build & Release Selesai!</b>
-            
-            📦 <b>Versi:</b> <code>${{ env.RELEASE_TAG }}</code>
-            👤 <b>Actor:</b> @${{ github.actor }}
-            
-            <i>APK terlampir siap di-install.</i>
-          parse_mode: 'HTML'
+          title: '${{ github.event.repository.name }} — Release Successful'
+          status: 'success'
+          version: ${{ env.RELEASE_TAG }}
+          actor: ${{ github.actor }}
+          notes: 'APK terlampir siap di-install.'
